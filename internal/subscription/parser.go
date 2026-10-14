@@ -3,6 +3,7 @@ package subscription
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"strings"
 	"tunnelctl/internal/domain"
 	"tunnelctl/internal/importer"
@@ -18,7 +19,11 @@ func Parse(b []byte) ([]domain.Profile, error) {
 		return nil, parseError()
 	}
 	b = bytes.TrimSpace(b)
-	if !bytes.HasPrefix(b, []byte("ss://")) {
+	if bytes.HasPrefix(b, []byte("{")) || bytes.HasPrefix(b, []byte("[")) || bytes.HasPrefix(b, []byte("proxies:")) || bytes.HasPrefix(b, []byte("proxy-providers:")) {
+		return nil, domain.Fail(3, "Structured core/Clash subscriptions are unsupported.", "Use a supported share-link list; raw remote configurations are never executed.")
+	}
+	first, _, _ := bytes.Cut(b, []byte("\n"))
+	if !bytes.Contains(first, []byte("://")) {
 		compact := bytes.Map(func(r rune) rune {
 			if r == '\r' || r == '\n' || r == '\t' || r == ' ' {
 				return -1
@@ -55,6 +60,10 @@ func Parse(b []byte) ([]domain.Profile, error) {
 		}
 		p, e := importer.Parse(strings.NewReader(string(line)))
 		if e != nil {
+			var de *domain.Error
+			if errors.As(e, &de) && de.Code == 3 {
+				return nil, domain.Fail(3, "Subscription contains an unsupported profile capability.", "Only the documented Shadowsocks/TCP combinations are accepted; the previous snapshot is preserved.")
+			}
 			return nil, domain.Fail(2, "Subscription contains an invalid or unsupported share link.", "Only nonempty lists of supported Shadowsocks links are accepted; the previous snapshot is preserved.")
 		}
 		key := p.Identity()

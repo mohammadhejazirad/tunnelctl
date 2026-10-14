@@ -104,6 +104,7 @@ tunnelctl profile import --file /absolute/private/profile.txt
 tunnelctl profile list --json
 tunnelctl profile show PROFILE_ID --redacted
 tunnelctl profile select PROFILE_ID
+tunnelctl --core /absolute/path/to/sing-box profile check PROFILE_ID
 tunnelctl --core /absolute/path/to/sing-box core verify --json
 tunnelctl --core /absolute/path/to/sing-box doctor --json
 tunnelctl --core /absolute/path/to/sing-box run --duration 10m
@@ -119,6 +120,7 @@ From a second terminal, same user/storage:
 ```sh
 tunnelctl status --json
 curl --proxy socks5h://127.0.0.1:2080 https://example.com/
+tunnelctl probe --target https://example.com/ --json
 tunnelctl stop
 tunnelctl stop  # Safe to repeat.
 ```
@@ -127,6 +129,12 @@ This request contacts example.com only when explicitly executed. Loopback is
 reachable by other users. On shared systems use `--proxy-auth-file
 /private/listener-auth.json` for `run`/`start`; see
 [synthetic format](examples/proxy-auth.json). Keep client credentials out of argv.
+
+`probe` sends one TLS-verified HTTPS request through the matching owned session;
+it reads at most 4 KiB, follows no redirects and never persists a connection claim.
+Use the same `--proxy-auth-file` if configured. Its destination must have no
+credentials/query/fragment. `profile check` validates config without opening a
+listener. Both diagnostics are also available in the menu.
 
 ## Profiles and subscriptions
 
@@ -172,18 +180,32 @@ supervised/certified. The ephemeral child listener is unauthenticated loopback.
 ## TUI, status, logs and completion
 
 ```sh
+tunnelctl --core /absolute/path/to/sing-box  # Interactive: open Main menu.
 tunnelctl --core /absolute/path/to/sing-box tui
 tunnelctl --no-color tui
 tunnelctl completion bash
 tunnelctl completion powershell
 ```
 
-Tab/1–4 switch screens; arrows/j/k move; `/` filters; Enter selects; `s` starts
-selected profile detached; `x` confirms stop; `p` previews a source refresh and
-asks before applying; `?` helps; `q` leaves without stopping detached sessions.
+No-argument TTY startup opens Main menu; redirected startup returns help/JSON
+guidance immediately. Arrows/j/k and Enter navigate; Esc cancels/returns; `?`
+opens Help. Profiles: `i` hidden link import, `f` private file, `/` search,
+Enter details/select/config-check, `r` rename, `d` confirmed removal.
+Subscriptions: `a` hidden add, `p/u` preview/update, `r` rename, `d` remove/retain.
+Connect/Settings configure port, duration, authentication and an optional explicit
+HTTPS probe; settings are menu-local. All menu starts are truly **detached**.
+`x` confirms session-bound stop; `q` checks lifetime and offers leave running,
+disconnect-and-exit or return. Esc/Ctrl+C cancels in-flight work without freezing
+the UI; exit waits for cleanup. Read [menu guide](docs/tui.md) for all flows.
 No mouse, Nerd Font or emoji required. Small terminals get a compact view.
 `NO_COLOR`, `--plain`, `--no-color` control styling. `TERM=dumb`, redirected I/O,
 `--json` and `--non-interactive` refuse TUI with CLI guidance.
+
+Private real samples are **development-only and explicitly opt-in** through a
+separate bounded Go harness. They are never read by ordinary startup/tests/CI,
+packaged, displayed or used as public fixtures. See
+[private test activation, anonymous stages and safety](docs/private-testing.md).
+Unsupported feeds/protocols remain rejected; successful download is not connection.
 
 `logs` returns at most 256 **state events from the last session**, not raw core
 logs/counters; `--follow` is unavailable. Use `doctor` and `core verify` for

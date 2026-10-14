@@ -3,7 +3,11 @@ the user's separately installed, verified sing-box 1.14.3; no core is bundled.
 
 Includes transactional subscriptions, protected previews/last-good snapshots,
 schema migration backup, profile management, detached sessions, isolated child
-exec, keyboard TUI, private state events and completion. See CHANGELOG.md and
+exec, automatic keyboard main menu, hidden imports, connection settings,
+cancellable subscription forms, confirmed-session-bound stop and explicit probes,
+private state events and completion. Packaging uses explicit public file lists;
+development private-test tooling and private inputs/reports are never shipped.
+See CHANGELOG.md and
 docs/testing.md for actual evidence and limits.
 
 Only Linux amd64 proxy runtime is tested by this local acceptance environment.

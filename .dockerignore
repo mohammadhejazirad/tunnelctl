@@ -1,0 +1,3 @@
+# No Docker distribution is supported. Deny the whole context by default.
+# A future Dockerfile must opt in to individual source files, never secrets.
+**

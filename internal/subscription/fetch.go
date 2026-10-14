@@ -123,13 +123,17 @@ func (f Fetcher) Fetch(ctx context.Context, s domain.Subscription) (FetchResult,
 		}
 		ips, e := lookup(ctx, host)
 		if e != nil || len(ips) == 0 || len(ips) > 64 {
-			return nil, networkError("Subscription hostname resolution failed.")
+			category := "dns"
+			if ctx.Err() != nil {
+				category = domain.FailureCategory(ctx.Err())
+			}
+			return nil, domain.NetworkFail(category, "Subscription hostname resolution failed.")
 		}
 		// Validate every resolved answer, then dial that literal. There is no second DNS lookup.
 		for _, a := range ips {
 			ip, ok := netip.AddrFromSlice(a.IP)
 			if !ok || !allowed(ip, s.AllowedCIDRs) {
-				return nil, networkError("Subscription destination is blocked by the private-address policy.")
+				return nil, domain.NetworkFail("source_policy", "Subscription destination is blocked by the private-address policy.")
 			}
 		}
 		for _, a := range ips {
@@ -148,7 +152,7 @@ func (f Fetcher) Fetch(ctx context.Context, s domain.Subscription) (FetchResult,
 				return c, nil
 			}
 		}
-		return nil, networkError("Cannot connect to the subscription server.")
+		return nil, domain.NetworkFail("unreachable", "Cannot connect to the subscription server.")
 	}
 	defer tr.CloseIdleConnections()
 	original, _ := url.Parse(s.URL)
@@ -172,16 +176,20 @@ func (f Fetcher) Fetch(ctx context.Context, s domain.Subscription) (FetchResult,
 	res, e := client.Do(req)
 	if e != nil {
 		if ctx.Err() != nil {
-			return FetchResult{}, networkError("Subscription request was canceled or timed out.")
+			return FetchResult{}, domain.NetworkFail(domain.FailureCategory(ctx.Err()), "Subscription request was canceled or timed out.")
 		}
-		return FetchResult{}, networkError("Subscription fetch failed; check TLS, DNS and source policy.")
+		return FetchResult{}, domain.NetworkFail(domain.FailureCategory(e), "Subscription fetch failed; check TLS, DNS and source policy.")
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusNotModified {
 		return FetchResult{NotModified: true}, nil
 	}
 	if res.StatusCode != http.StatusOK {
-		return FetchResult{}, networkError("Subscription server returned an unsuccessful response.")
+		category := "http_response"
+		if res.StatusCode == 401 || res.StatusCode == 403 {
+			category = "authentication_or_access_denied"
+		}
+		return FetchResult{}, domain.NetworkFail(category, "Subscription server returned an unsuccessful response.")
 	}
 	if res.ContentLength > MaxWire {
 		return FetchResult{}, parseError()

@@ -6,6 +6,12 @@ additional runtime/build service dependency. It actually builds five target arch
 Unix tar.gz / Windows ZIP, with notices/docs/examples, module license texts,
 CycloneDX module-inventory SBOM, checksums, notes and release manifest.
 
+Public documents/examples are explicitly allowlisted by relative name; the source
+tree is not harvested recursively. Private inputs/reports, symlinks and the
+development private-test executable are rejected/excluded independently of Git
+ignore rules. Never upload a wildcard of the source tree. `dist/*` in CI contains
+only the fresh builder's public assets; no private harness reports are collected.
+
 Only Linux amd64 is runtime-tested. Other targets have `_compile-only` names and
 SUPPORT.txt warnings; build success never certifies a client platform. Core is not
 bundled. Source license is Apache-2.0; maintainer must confirm authority/license
@@ -29,7 +35,8 @@ independent. Maintain CHANGELOG.md and select explicit release notes; the curren
 builder targets docs/release-notes-0.2.0.md. See versioning.md for prereleases.
 
 quality.yml checks fmt, vet, modules, tests, repository hygiene, real pinned core,
-race-instrumented CLI, vulnerability scan, portable race and cross builds. Actions
+race-instrumented CLI and synthetic development-harness acceptance, vulnerability
+scan, portable race and cross builds. No real private samples are present in CI. Actions
 are commit-pinned. The hygiene scanner is intentionally narrow, not exhaustive
 secret detection; review changes before release. actionlint is pinned for workflow
 validation. Remote CI has not been executed by this local development session.

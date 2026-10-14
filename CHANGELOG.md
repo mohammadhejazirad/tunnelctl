@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased menu/private-testing increment
+
+- Automatic TTY main menu, hidden/file imports, profile details/search/CRUD and
+  subscription hidden add/preview/apply/rename/remove through shared services.
+- Menu-local duration/port/authentication/probe settings, explicit detached exit
+  options, cancellable background operations and confirmed-session-bound stop.
+- Bounded opt-in anonymous development harness; private inputs/reports excluded
+  from Git candidates, explicit release lists and denied Docker build context.
+- Typed sanitized network failure categories and correct schema-2 diagnostics.
+- Synthetic TLS transaction/menu/cancellation, PTY and real-core harness tests.
+
 ## 0.2.0 — Unreleased
 
 - Transactional HTTPS subscriptions with previews, conditional requests, strict

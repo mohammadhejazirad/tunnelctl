@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -59,5 +60,32 @@ func TestArchivesAndNoOverwrite(t *testing.T) {
 	}
 	if e := run("v00.2.0", filepath.Join(root, "bad"), true); e == nil {
 		t.Fatal("invalid release tag accepted")
+	}
+}
+
+func TestPrivatePathsAndSymlinksNeverPackaged(t *testing.T) {
+	for _, name := range []string{"links_and_subs.txt", "report.private.json", "report.private.log", "private-results/report.txt"} {
+		root := t.TempDir()
+		source := filepath.Join(root, "stage")
+		os.MkdirAll(filepath.Join(source, filepath.Dir(name)), 0700)
+		path := filepath.Join(source, name)
+		os.WriteFile(path, []byte("synthetic-private-sentinel"), 0600)
+		for i, isZip := range []bool{false, true} {
+			if archive(source, filepath.Join(root, fmt.Sprintf("asset%d", i)), isZip) == nil {
+				t.Fatal("private file entered archive", name)
+			}
+		}
+		if copyFile(path, filepath.Join(root, "copy")) == nil {
+			t.Fatal("private release copy allowed")
+		}
+	}
+	root := t.TempDir()
+	source := filepath.Join(root, "stage")
+	os.Mkdir(source, 0700)
+	if e := os.Symlink("/dev/null", filepath.Join(source, "README.md")); e != nil {
+		t.Skip("symlink creation unavailable on this runner")
+	}
+	if archive(source, filepath.Join(root, "bad.tar.gz"), false) == nil {
+		t.Fatal("symlink archive allowed")
 	}
 }

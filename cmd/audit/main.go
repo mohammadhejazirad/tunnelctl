@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"tunnelctl/internal/hygiene"
 )
 
 var credential = regexp.MustCompile(`-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[A-Z0-9]{16}`)
@@ -30,6 +31,9 @@ func audit() error {
 			continue
 		}
 		path := string(name)
+		if hygiene.PrivatePath(path) {
+			return fmt.Errorf("private/generated input is present in repository candidates (content withheld)")
+		}
 		data, e := os.ReadFile(path)
 		if e != nil {
 			return fmt.Errorf("cannot inspect repository path: %s", path)
@@ -43,6 +47,9 @@ func audit() error {
 }
 
 func inspect(path string, data []byte) error {
+	if hygiene.PrivatePath(path) {
+		return fmt.Errorf("private/generated input is prohibited (content withheld)")
+	}
 	base := filepath.Base(path)
 	if strings.HasPrefix(path, "bin/") || strings.HasPrefix(path, "dist/") || strings.HasPrefix(path, ".local/") || base == ".env" || strings.HasPrefix(base, ".env.") || (strings.HasPrefix(base, "profiles.") && strings.HasSuffix(base, ".json")) || base == "session.json" || base == "events.json" || base == "control.sock" || strings.HasPrefix(base, ".core-config-") || strings.HasPrefix(base, ".atomic-") || strings.HasSuffix(base, ".key") || strings.HasSuffix(base, ".pem") {
 		return fmt.Errorf("sensitive/generated path is not permitted: %s", path)

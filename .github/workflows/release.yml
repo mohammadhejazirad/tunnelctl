@@ -37,7 +37,8 @@ jobs:
           curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --output "$RUNNER_TEMP/core/core.tar.gz" https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz
           echo 'e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  '"$RUNNER_TEMP/core/core.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/core/core.tar.gz" -C "$RUNNER_TEMP/core"
-          TUNNELCTL_TEST_BIN="$RUNNER_TEMP/installed/tunnelctl" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -count=1 -v ./test/integration
+          CGO_ENABLED=0 go build -o "$RUNNER_TEMP/private-test" ./cmd/private-test
+          TUNNELCTL_PRIVATE_TEST_BIN="$RUNNER_TEMP/private-test" TUNNELCTL_TEST_BIN="$RUNNER_TEMP/installed/tunnelctl" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -count=1 -v ./test/integration
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-assets

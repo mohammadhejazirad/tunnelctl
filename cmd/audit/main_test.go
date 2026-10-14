@@ -6,7 +6,7 @@ import (
 )
 
 func TestSensitivePathsAndValues(t *testing.T) {
-	for _, path := range []string{"bin/tunnelctl", ".env.local", "config/profiles.schema1.backup.json", "state/events.json", "secret.pem"} {
+	for _, path := range []string{"links_and_subs.txt", "docs/result.private.json", "private-results/report.txt", "bin/tunnelctl", ".env.local", "config/profiles.schema1.backup.json", "state/events.json", "secret.pem"} {
 		if inspect(path, []byte("ordinary")) == nil {
 			t.Fatal("sensitive path accepted", path)
 		}

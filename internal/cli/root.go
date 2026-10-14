@@ -130,6 +130,15 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 		}
 		return nil
 	}
+	root.RunE = func(cmd *cobra.Command, _ []string) error {
+		if interactive(o, in, out) {
+			return enterTUI(cmd, o, service, in, out)
+		}
+		if o.json {
+			return write(map[string]string{"usage": "tunnelctl --help", "menu": "Run tunnelctl tui with terminal input and output."})
+		}
+		return cmd.Help()
+	}
 	root.AddCommand(&cobra.Command{Use: "version", Short: "Print application and pinned core versions", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
 		v, e := buildinfo.Current()
 		if e != nil {
@@ -151,6 +160,8 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	root.AddCommand(profile)
 	root.AddCommand(subscriptionCommand(service, write, in))
 	root.AddCommand(coreCommand(service, write))
+	root.AddCommand(probeCommand(service, write))
+	profile.AddCommand(profileCheckCommand(service, write))
 	root.AddCommand(tuiCommand(o, service, in, out))
 	profile.AddCommand(&cobra.Command{Use: "rename PROFILE NAME", Short: "Rename a profile and preserve its label during refresh", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
 		s, e := service()

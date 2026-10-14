@@ -73,3 +73,22 @@ func TestCLIJSONAndRedaction(t *testing.T) {
 		t.Fatal("TUN should be unsupported")
 	}
 }
+
+func TestNoArgumentRedirectedStartupNeverReads(t *testing.T) {
+	var out, diagnostics bytes.Buffer
+	if Execute(nil, refusingReader{}, &out, &diagnostics) != 0 || !strings.Contains(out.String(), "Usage:") || strings.Contains(out.String(), "\x1b") {
+		t.Fatal("noninteractive startup must return plain help without reading input")
+	}
+	out.Reset()
+	if Execute([]string{"--json"}, refusingReader{}, &out, &diagnostics) != 0 || !json.Valid(out.Bytes()) {
+		t.Fatal("no-argument JSON invalid")
+	}
+	out.Reset()
+	if Execute([]string{"tui"}, refusingReader{}, &out, &diagnostics) != 3 {
+		t.Fatal("redirected TUI should be refused")
+	}
+}
+
+type refusingReader struct{}
+
+func (refusingReader) Read([]byte) (int, error) { panic("noninteractive entry read stdin") }

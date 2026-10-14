@@ -1,7 +1,7 @@
 # CLI contract, schema 1
 
 Implemented commands: help, version, init, profile import/list/show/select/rename/
-remove; subscription add/list/show/rename/remove/update; run, start, exec, status,
+remove/check; subscription add/list/show/rename/remove/update; run, start, exec, status, probe,
 stop, logs, doctor, core list/verify, tui and completion. Profile identifiers are full random IDs or unique
 sanitized names; duplicate names require IDs. Duplicate connection identities are
 rejected, and the first import becomes selected. Imported state remains distinct
@@ -47,7 +47,17 @@ Subscription add requires --name and --url-stdin; no secret URL argument exists.
 Update supports --preview, --accept-removals and --if-preview TOKEN. See
 subscriptions.md for transaction, identity, source-removal and active-session rules.
 TUI confirmation only authorizes the same shared use cases, not extra capabilities.
+No-argument interactive startup opens the same menu; redirected/noninteractive
+startup returns help or a JSON usage result without reading stdin. See tui.md.
 Completion supports bash/zsh/fish/powershell and never installs shell changes.
+
+`profile check PROFILE` validates a generated configuration with the approved
+core and returns config_validated:true, connection_tested:false. No listener or
+network request. `probe --target https://example.com/` explicitly sends one
+bounded HTTPS request via the current authenticated owned session. Use
+`--proxy-auth-file` when needed. It refuses credential/query/fragment targets,
+redirects and mismatched/changed sessions, verifies TLS, reads at most 4 KiB and
+has a 10-second request deadline. Probe results are not persisted in status.
 
 | Exit | Meaning |
 |---|---|
@@ -62,5 +72,6 @@ Completion supports bash/zsh/fish/powershell and never installs shell changes.
 
 Status reports process_running, listener_ready, connection_tested, start/deadline,
 profile ID, core version and listener. `connection_tested` is false because this
-version does not perform a runtime upstream probe. Statistics are Unavailable.
+version does not persist a runtime upstream probe. The optional explicitly
+confirmed menu probe is local to that menu/session only. Statistics are Unavailable.
 Status has no credentials, persisted PID authority or invented traffic counters.

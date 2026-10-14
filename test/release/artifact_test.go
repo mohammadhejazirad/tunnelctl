@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"tunnelctl/internal/hygiene"
 )
 
 func TestReleaseArchivesAndInstallation(t *testing.T) {
@@ -55,6 +56,9 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 	entries := map[string][]byte{}
 	modes := map[string]os.FileMode{}
 	valid := func(name string) {
+		if hygiene.PrivatePath(name) || filepath.Base(name) == "private-test" || filepath.Base(name) == "private-test.exe" {
+			t.Fatal("private input/report/tool entered release")
+		}
 		if name != filepath.ToSlash(filepath.Clean(name)) || strings.HasPrefix(name, "/") || strings.HasPrefix(name, "../") || strings.Contains(name, "\\") {
 			t.Fatal("unsafe archive member", name)
 		}
@@ -114,7 +118,7 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 			modes[h.Name] = os.FileMode(h.Mode)
 		}
 	}
-	for _, name := range []string{"LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "compatibility.json", "SUPPORT.txt", "docs/recovery.md", "THIRD_PARTY_LICENSES/Go_LICENSE"} {
+	for _, name := range []string{"LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "compatibility.json", "SUPPORT.txt", "docs/recovery.md", "docs/tui.md", "docs/private-testing.md", "THIRD_PARTY_LICENSES/Go_LICENSE"} {
 		if len(entries[name]) == 0 {
 			t.Fatal("required archive member missing", name)
 		}

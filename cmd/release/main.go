@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 	"tunnelctl/internal/buildinfo"
+	"tunnelctl/internal/hygiene"
 )
 
 type target struct {
@@ -122,13 +123,13 @@ func run(tag, out string, dry bool) error {
 				return e
 			}
 		}
-		if e = copyTree("docs", filepath.Join(dir, "docs")); e != nil {
+		if e = copyPublicTree("docs", filepath.Join(dir, "docs")); e != nil {
 			return e
 		}
 		if e = copyTree(licenses, filepath.Join(dir, "THIRD_PARTY_LICENSES")); e != nil {
 			return e
 		}
-		if e = copyTree("examples", filepath.Join(dir, "examples")); e != nil {
+		if e = copyPublicTree("examples", filepath.Join(dir, "examples")); e != nil {
 			return e
 		}
 		if e = writeCompatibility(filepath.Join(dir, "compatibility.json"), version, tag, commitText, built, dry, t); e != nil {
@@ -333,11 +334,37 @@ func collectLicenses(modules []byte, destination string) error {
 	return nil
 }
 func copyFile(from, to string) error {
+	st, e := os.Lstat(from)
+	if e != nil || !st.Mode().IsRegular() || hygiene.PrivatePath(from) {
+		return fmt.Errorf("release input must be an allowed regular public file")
+	}
 	b, e := os.ReadFile(from)
 	if e != nil {
 		return e
 	}
 	return os.WriteFile(to, b, 0644)
+}
+
+// Public documentation/examples are named, not recursively harvested.
+func copyPublicTree(from, to string) error {
+	allowed := map[string][]string{
+		"examples": {"shadowsocks.txt", "proxy-auth.json"},
+		"docs":     {"architecture.md", "cli.md", "compatibility.md", "core-versions.md", "execution-checklist.md", "install.md", "recovery.md", "releasing.md", "release-notes-0.2.0.md", "roadmap.md", "security.md", "subscriptions.md", "testing.md", "versioning.md", "tui.md", "private-testing.md", "decisions/0001-storage.md", "decisions/0002-privileges.md", "decisions/0003-route-ownership.md"},
+	}
+	names, ok := allowed[from]
+	if !ok {
+		return fmt.Errorf("unknown public release tree")
+	}
+	for _, name := range names {
+		destination := filepath.Join(to, name)
+		if e := os.MkdirAll(filepath.Dir(destination), 0755); e != nil {
+			return e
+		}
+		if e := copyFile(filepath.Join(from, name), destination); e != nil {
+			return e
+		}
+	}
+	return nil
 }
 func copyTree(from, to string) error {
 	return filepath.WalkDir(from, func(path string, d os.DirEntry, e error) error {
@@ -354,6 +381,9 @@ func copyTree(from, to string) error {
 		}
 		if d.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symlinks are prohibited in release documents")
+		}
+		if hygiene.PrivatePath(rel) {
+			return fmt.Errorf("private release input prohibited")
 		}
 		return copyFile(path, dest)
 	})
@@ -376,6 +406,9 @@ func archive(dir, path string, isZip bool) (err error) {
 			}
 			if d.IsDir() {
 				return nil
+			}
+			if !d.Type().IsRegular() || hygiene.PrivatePath(p) {
+				return fmt.Errorf("private/nonregular archive entry prohibited")
 			}
 			rel, e := filepath.Rel(dir, p)
 			if e != nil {
@@ -420,6 +453,9 @@ func archive(dir, path string, isZip bool) (err error) {
 		}
 		if d.IsDir() {
 			return nil
+		}
+		if !d.Type().IsRegular() || hygiene.PrivatePath(p) {
+			return fmt.Errorf("private/nonregular archive entry prohibited")
 		}
 		rel, e := filepath.Rel(dir, p)
 		if e != nil {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -93,6 +94,7 @@ func (s *Service) supervisor() *session.Supervisor {
 }
 func (s *Service) Status() (domain.Session, error) { return s.supervisor().Status() }
 func (s *Service) Stop() error                     { return s.supervisor().Stop() }
+func (s *Service) StopSession(id string) error     { return s.supervisor().StopSession(id) }
 func (s *Service) Run(ctx context.Context, key, mode string, l core.Listener, duration time.Duration, onReady func(domain.Session) error) (err error) {
 	if mode != "proxy" {
 		return domain.Fail(3, "Only proxy mode is implemented.", "TUN and host network mutation are deferred.")
@@ -146,7 +148,7 @@ func (s *Service) Doctor(ctx context.Context) (Doctor, error) {
 	if e != nil {
 		return Doctor{}, e
 	}
-	return Doctor{runtime.GOOS + "/" + runtime.GOARCH, v, a.Capabilities(), "Private, schema version 1; plaintext at rest", false}, nil
+	return Doctor{runtime.GOOS + "/" + runtime.GOARCH, v, a.Capabilities(), fmt.Sprintf("Private, schema version %d; plaintext at rest", domain.SchemaVersion), false}, nil
 }
 func ImportFile(path string) (*os.File, error) {
 	f, e := store.OpenPrivate(path, os.O_RDONLY)

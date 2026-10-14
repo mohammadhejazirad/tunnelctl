@@ -4,3 +4,9 @@
 *.test
 *.prof
 /.local/
+/links_and_subs.txt
+/private-results/
+/private-cache/
+/.private/
+*.private.json
+*.private.log

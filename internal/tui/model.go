@@ -2,14 +2,13 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"context"
 	"errors"
 	"fmt"
-	"github.com/charmbracelet/x/ansi"
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"tunnelctl/internal/app"
 	"tunnelctl/internal/core"
@@ -18,18 +17,53 @@ import (
 	"tunnelctl/internal/subscription"
 )
 
+const (
+	overview = iota
+	profilesPage
+	sourcesPage
+	logsPage
+	menuPage
+	connectPage
+	sessionsPage
+	diagnosticsPage
+	settingsPage
+	helpPage
+	detailsPage
+	sourceDetailsPage
+)
+
+var menu = []string{"Overview", "Connect", "Profiles", "Subscriptions", "Sessions", "Logs", "Diagnostics", "Settings", "Help", "Exit"}
+var menuPages = []int{overview, connectPage, profilesPage, sourcesPage, sessionsPage, logsPage, diagnosticsPage, settingsPage, helpPage}
+
 type model struct {
-	service                       *app.Service
-	ctx                           context.Context
-	page, cursor, width, height   int
-	color, busy, searching        bool
-	filter, message, confirmation string
-	profiles                      []domain.PublicProfile
-	sources                       []domain.PublicSubscription
-	events                        []session.Event
-	state                         domain.Session
-	preview                       *subscription.Diff
-	previewSource                 string
+	service                          *app.Service
+	ctx                              context.Context
+	page, cursor, width, height      int
+	color, busy, searching           bool
+	filter, message, confirmation    string
+	confirmLabel                     string
+	profiles                         []domain.PublicProfile
+	sources                          []domain.PublicSubscription
+	events                           []session.Event
+	state                            domain.Session
+	preview                          *subscription.Diff
+	previewSource                    string
+	profile                          domain.PublicProfile
+	source                           domain.PublicSubscription
+	form                             *form
+	confirmAction                    func(context.Context) completed
+	opCancel                         context.CancelFunc
+	opID                             uint64
+	canceling, exitAfter, exitPrompt bool
+	exitCursor                       int
+	port                             uint16
+	duration                         time.Duration
+	authFile, probeTarget            string
+	diagnostic                       *app.Doctor
+	probe                            *app.ProbeResult
+	probeSession                     string
+	connectFailed, probeFailed       bool
+	operations                       *sync.WaitGroup
 }
 type loaded struct {
 	profiles []domain.PublicProfile
@@ -40,10 +74,17 @@ type loaded struct {
 }
 type tick struct{}
 type completed struct {
-	message string
-	err     error
-	preview *subscription.Diff
-	source  string
+	id           uint64
+	message      string
+	err          error
+	preview      *subscription.Diff
+	source       string
+	state        *domain.Session
+	doctor       *app.Doctor
+	probe        *app.ProbeResult
+	probeSession string
+	quit         bool
+	connection   bool
 }
 
 func (m model) load() tea.Msg {
@@ -65,11 +106,14 @@ func (m model) load() tea.Msg {
 func refresh() tea.Cmd        { return tea.Tick(time.Second, func(time.Time) tea.Msg { return tick{} }) }
 func (m model) Init() tea.Cmd { return tea.Batch(m.load, refresh()) }
 func safeError(e error) string {
+	if errors.Is(e, context.Canceled) {
+		return "Canceled. No automatic connection switch was requested."
+	}
 	var de *domain.Error
 	if errors.As(e, &de) {
-		return de.Message
+		return "Error: " + domain.SafeName(de.Message) + "\nRemedy: " + domain.SafeName(de.Remediation)
 	}
-	return "Operation failed; use doctor for diagnostics."
+	return "Error: Operation failed. Use Diagnostics or the CLI doctor command."
 }
 func (m model) visibleProfiles() []domain.PublicProfile {
 	out := []domain.PublicProfile{}
@@ -80,6 +124,74 @@ func (m model) visibleProfiles() []domain.PublicProfile {
 	}
 	return out
 }
+func (m *model) begin(label string, action func(context.Context) completed) tea.Cmd {
+	ctx, cancel := context.WithCancel(m.ctx)
+	m.opCancel = cancel
+	m.opID++
+	id := m.opID
+	m.busy = true
+	m.canceling = false
+	m.message = label
+	ch := make(chan completed, 1)
+	operations := m.operations
+	if operations != nil {
+		operations.Add(1)
+	}
+	go func() {
+		if operations != nil {
+			defer operations.Done()
+		}
+		v := action(ctx)
+		v.id = id
+		cancel()
+		ch <- v
+	}()
+	return func() tea.Msg { return <-ch }
+}
+func (m *model) confirm(text string, action func(context.Context) completed) {
+	m.confirmation = text + " Enter/y: confirm | Esc/n: return"
+	m.confirmAction = action
+	m.confirmLabel = "Applying confirmed operation..."
+}
+func (m *model) leave() tea.Cmd {
+	m.form = nil
+	m.searching = false
+	m.confirmation = ""
+	m.preview = nil
+	if m.busy {
+		m.exitAfter = true
+		m.canceling = true
+		if m.opCancel != nil {
+			m.opCancel()
+		}
+		m.message = "Canceling; waiting for owned operation cleanup before leaving."
+		return nil
+	}
+	// Refresh at exit; do not infer lifetime from an old status snapshot.
+	return m.begin("Checking session before exit...", func(context.Context) completed {
+		state, e := m.service.Status()
+		return completed{state: &state, err: e, quit: e == nil && !state.ProcessRunning}
+	})
+}
+func (m *model) count() int {
+	switch m.page {
+	case menuPage:
+		return len(menu)
+	case profilesPage:
+		return len(m.visibleProfiles())
+	case sourcesPage:
+		return len(m.sources)
+	case connectPage:
+		return 8
+	case settingsPage:
+		return 4
+	case detailsPage:
+		return 4
+	case sourceDetailsPage:
+		return 3
+	}
+	return 1
+}
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -87,53 +199,149 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	case loaded:
 		if msg.err != nil {
-			m.message = safeError(msg.err)
+			if !m.busy {
+				m.message = safeError(msg.err)
+			}
 		} else {
 			m.profiles = msg.profiles
 			m.sources = msg.sources
 			m.events = msg.events
 			m.state = msg.state
+			for _, p := range m.profiles {
+				if p.ID == m.profile.ID {
+					m.profile = p
+					break
+				}
+			}
+			for _, s := range m.sources {
+				if s.ID == m.source.ID {
+					m.source = s
+					break
+				}
+			}
+			m.cursor = min(m.cursor, max(0, m.count()-1))
 		}
-		return m, nil
 	case tick:
 		if !m.busy {
 			return m, tea.Batch(m.load, refresh())
 		}
 		return m, refresh()
 	case completed:
+		if msg.id != m.opID {
+			return m, nil
+		}
 		m.busy = false
+		m.opCancel = nil
+		canceled := m.canceling
+		m.canceling = false
 		if msg.err != nil {
 			m.message = safeError(msg.err)
 		} else {
-			m.message = msg.message
-			if msg.preview != nil {
-				m.preview = msg.preview
-				m.previewSource = msg.source
-				m.confirmation = fmt.Sprintf("Apply preview: +%d / -%d / retain selected %d? y/N", len(msg.preview.Added), len(msg.preview.Removed), len(msg.preview.RetainedSelected))
+			m.message = "Success: " + msg.message
+		}
+		if msg.state != nil {
+			m.state = *msg.state
+			if msg.state.ProcessRunning && !m.exitAfter {
+				m.exitPrompt = true
+				m.exitCursor = 0
 			}
 		}
-		return m, m.load
-	case tea.KeyPressMsg:
-		key := msg.String()
-		if key == "ctrl+c" || (!m.searching && key == "q") {
+		if msg.doctor != nil && msg.err == nil {
+			m.diagnostic = msg.doctor
+		}
+		if msg.connection {
+			m.connectFailed = msg.err != nil
+		}
+		if msg.probeSession != "" {
+			m.probeSession = msg.probeSession
+			m.probeFailed = msg.err != nil
+			m.probe = nil
+			if msg.err == nil {
+				m.probe = msg.probe
+			}
+		}
+		if msg.preview != nil && msg.err == nil && !canceled {
+			m.preview = msg.preview
+			m.previewSource = msg.source
+			source, token := msg.source, msg.preview.Token
+			m.confirm(fmt.Sprintf("Apply snapshot? Added %d; removed %d; retain selected %d.", len(msg.preview.Added), len(msg.preview.Removed), len(msg.preview.RetainedSelected)), func(ctx context.Context) completed {
+				_, e := m.service.Subscriptions().Update(ctx, source, false, true, token)
+				return completed{message: "Snapshot committed; active session was not switched.", err: e}
+			})
+		}
+		if msg.quit && msg.err == nil {
 			return m, tea.Quit
 		}
-		if m.confirmation != "" {
-			m.confirmation = ""
-			if key == "y" {
-				m.busy = true
-				if m.preview != nil {
-					source, token := m.previewSource, m.preview.Token
-					m.preview = nil
-					return m, func() tea.Msg {
-						_, e := m.service.Subscriptions().Update(m.ctx, source, false, true, token)
-						return completed{message: "Snapshot committed; active session was not switched.", err: e}
-					}
-				}
-				return m, func() tea.Msg { return completed{message: "Owned session stopped.", err: m.service.Stop()} }
+		if m.exitAfter {
+			m.exitAfter = false
+			return m, m.leave()
+		}
+		return m, m.load
+	case tea.PasteMsg:
+		if m.form != nil {
+			m.form.append(msg.Content)
+		} else if m.searching {
+			m.filter = domain.SafeName(m.filter + msg.Content)
+			if len(m.filter) > 512 {
+				m.filter = ""
 			}
-			m.preview = nil
+			m.cursor = 0
+		}
+	case tea.KeyPressMsg:
+		key := msg.String()
+		if m.busy {
+			if key == "esc" || key == "ctrl+c" {
+				m.canceling = true
+				if m.opCancel != nil {
+					m.opCancel()
+				}
+				m.message = "Canceling; waiting for cleanup..."
+			}
+			if key == "q" {
+				return m, m.leave()
+			}
 			return m, nil
+		}
+		if m.exitPrompt {
+			switch key {
+			case "esc", "n":
+				m.exitPrompt = false
+			case "up", "k":
+				m.exitCursor = max(0, m.exitCursor-1)
+			case "down", "j":
+				m.exitCursor = min(2, m.exitCursor+1)
+			case "enter":
+				m.exitPrompt = false
+				if m.exitCursor == 0 {
+					return m, tea.Quit
+				}
+				if m.exitCursor == 1 {
+					id := m.state.ID
+					return m, m.begin("Stopping confirmed session before exit...", func(context.Context) completed {
+						return completed{message: "Session stopped.", err: m.service.StopSession(id), quit: true}
+					})
+				}
+			}
+			return m, nil
+		}
+		if m.confirmation != "" {
+			action := m.confirmAction
+			if key == "enter" || key == "y" {
+				m.confirmation = ""
+				m.preview = nil
+				m.confirmAction = nil
+				return m, m.begin(m.confirmLabel, action)
+			}
+			if key == "esc" || key == "n" || key == "q" || key == "ctrl+c" {
+				m.confirmation = ""
+				m.preview = nil
+				m.confirmAction = nil
+				m.message = "Canceled; no confirmed action applied."
+			}
+			return m, nil
+		}
+		if m.form != nil {
+			return m, m.formKey(msg)
 		}
 		if m.searching {
 			switch key {
@@ -144,167 +352,258 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(r) > 0 {
 					m.filter = string(r[:len(r)-1])
 				}
+			case "ctrl+c":
+				m.searching = false
 			default:
-				if len([]rune(key)) == 1 && len(m.filter) < 512 {
-					m.filter += key
+				if msg.Text != "" && len(m.filter)+len(msg.Text) <= 512 {
+					m.filter += domain.SafeName(msg.Text)
 				}
 			}
 			m.cursor = 0
 			return m, nil
 		}
-		if m.busy {
-			return m, nil
-		}
 		switch key {
+		case "q", "ctrl+c":
+			return m, m.leave()
+		case "esc":
+			switch m.page {
+			case detailsPage:
+				m.page = profilesPage
+			case sourceDetailsPage:
+				m.page = sourcesPage
+			default:
+				m.page = menuPage
+			}
+			m.cursor = 0
+			m.message = ""
 		case "tab", "right":
-			m.page = (m.page + 1) % 4
-			m.cursor = 0
+			if m.page <= logsPage {
+				m.page = (m.page + 1) % 4
+				m.cursor = 0
+			}
 		case "left":
-			m.page = (m.page + 3) % 4
-			m.cursor = 0
+			if m.page <= logsPage {
+				m.page = (m.page + 3) % 4
+				m.cursor = 0
+			}
 		case "1", "2", "3", "4":
 			m.page = int(key[0] - '1')
 			m.cursor = 0
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.cursor = max(0, m.cursor-1)
 		case "down", "j":
-			m.cursor++
+			m.cursor = min(max(0, m.count()-1), m.cursor+1)
 		case "/":
-			if m.page == 1 {
+			if m.page == profilesPage {
 				m.searching = true
 			}
 		case "?":
-			m.message = "Tab: screens; j/k: move; Enter: select; s: detached start; x: stop; p: subscription preview; q: leave (detached session remains)."
-		case "x":
-			m.preview = nil
-			m.confirmation = "Stop the owned session? y/N"
+			m.page = helpPage
+			m.cursor = 0
 		case "s":
-			m.busy = true
-			return m, func() tea.Msg {
-				_, e := m.service.Start(m.ctx, "", core.Listener{Port: 2080}, 0)
-				return completed{message: "Detached proxy ready; quitting the UI leaves it running.", err: e}
+			m.page = connectPage
+			m.cursor = 0
+		case "x":
+			m.stopConfirmation()
+		case "i":
+			if m.page == profilesPage {
+				m.openForm("import-link", "Import a share link (hidden)", field{"Share link", "", true, 64 * 1024})
 			}
+		case "f":
+			if m.page == profilesPage {
+				m.openForm("import-file", "Import from owned 0600 file", field{"File path", "", false, 4096})
+			}
+		case "a":
+			if m.page == sourcesPage {
+				m.addSourceForm()
+			}
+		case "p", "u":
+			if m.page == sourcesPage && m.cursor < len(m.sources) {
+				return m, m.updateSource(m.sources[m.cursor].ID)
+			}
+			if m.page == sourceDetailsPage {
+				return m, m.updateSource(m.source.ID)
+			}
+		case "r":
+			m.renameForm()
+		case "d":
+			m.removeConfirmation()
 		case "enter":
-			if m.page == 1 {
-				p := m.visibleProfiles()
-				if m.cursor < len(p) {
-					id := p[m.cursor].ID
-					m.busy = true
-					return m, func() tea.Msg {
-						_, e := m.service.Select(id)
-						return completed{message: "Profile selected; active connection was not switched.", err: e}
-					}
-				}
-			}
-		case "p":
-			if m.page == 2 && m.cursor < len(m.sources) {
-				id := m.sources[m.cursor].ID
-				m.busy = true
-				return m, func() tea.Msg {
-					d, e := m.service.Subscriptions().Update(m.ctx, id, true, false, "")
-					if d.NotModified {
-						return completed{message: "Source returned Not Modified.", err: e}
-					}
-					return completed{message: "Preview ready.", err: e, preview: &d, source: id}
-				}
-			}
-		}
-		count := len(m.visibleProfiles())
-		if m.page == 2 {
-			count = len(m.sources)
-		}
-		if m.cursor >= count {
-			m.cursor = max(0, count-1)
+			return m, m.enter()
 		}
 	}
 	return m, nil
 }
-func (m model) View() tea.View {
-	width, height := m.width, m.height
-	if width <= 0 {
-		width = 80
-	}
-	if height <= 0 {
-		height = 24
-	}
-	if width < 16 || height < 5 {
-		return tea.NewView("Terminal too small\nq: leave")
-	}
-	title := lipgloss.NewStyle()
-	if m.color {
-		title = title.Bold(true).Foreground(lipgloss.Color("6"))
-	}
-	lines := []string{title.Render("tunnelctl  |  terminal proxy"), "1 Overview  2 Profiles  3 Sources  4 Events", ""}
-	budget := max(1, height-8)
+func (m *model) stopConfirmation() {
+	id := m.state.ID
+	m.confirm("Stop this owned session?", func(context.Context) completed {
+		return completed{message: "Session stopped and owned resources reconciled.", err: m.service.StopSession(id)}
+	})
+}
+func (m *model) updateSource(id string) tea.Cmd {
+	return m.begin("Loading subscription preview; Esc cancels...", func(ctx context.Context) completed {
+		d, e := m.service.Subscriptions().Update(ctx, id, true, false, "")
+		if d.NotModified {
+			return completed{message: "Source returned Not Modified; healthy snapshot retained.", err: e}
+		}
+		return completed{message: "Preview ready.", err: e, preview: &d, source: id}
+	})
+}
+func (m *model) enter() tea.Cmd {
 	switch m.page {
-	case 0:
-		lines = append(lines, fmt.Sprintf("State: %s", m.state.State), fmt.Sprintf("Listener: %s  Ready: %t", m.state.Listener, m.state.ListenerReady), fmt.Sprintf("Upstream verified: %t  Traffic: Unavailable", m.state.ConnectionTested), "TUN: Unsupported; no certified privileged adapter", "No host DNS, routes or firewall changes.")
-	case 1:
-		lines = append(lines, "Enter selects a profile. / filters names.")
+	case menuPage:
+		if m.cursor == len(menu)-1 {
+			return m.leave()
+		}
+		m.page = menuPages[m.cursor]
+		m.cursor = 0
+		if m.page == diagnosticsPage {
+			return m.doctor()
+		}
+	case overview:
+		m.page = connectPage
+		m.cursor = 0
+	case profilesPage:
 		p := m.visibleProfiles()
-		start := max(0, m.cursor-budget+1)
-		for i := start; i < len(p) && i < start+budget; i++ {
-			mark := "  "
-			if i == m.cursor {
-				mark = "> "
-			}
-			selected := ""
-			if p[i].Selected {
-				selected = " [selected]"
-			}
-			lines = append(lines, mark+p[i].Name+selected+"  "+p[i].Method)
+		if m.cursor < len(p) {
+			m.profile = p[m.cursor]
+			m.page = detailsPage
+			m.cursor = 0
 		}
-		if len(p) == 0 {
-			lines = append(lines, "No matching profiles. Import using the CLI.")
+	case sourcesPage:
+		if m.cursor < len(m.sources) {
+			m.source = m.sources[m.cursor]
+			m.page = sourceDetailsPage
+			m.cursor = 0
 		}
-	case 2:
-		lines = append(lines, "p previews a manual refresh; applying requires confirmation.")
-		start := max(0, m.cursor-budget+1)
-		for i := start; i < len(m.sources) && i < start+budget; i++ {
-			mark := "  "
-			if i == m.cursor {
-				mark = "> "
-			}
-			lines = append(lines, fmt.Sprintf("%s%s  %d profiles", mark, m.sources[i].Name, m.sources[i].Profiles))
+	case detailsPage:
+		switch m.cursor {
+		case 0:
+			id := m.profile.ID
+			return m.begin("Selecting profile...", func(context.Context) completed {
+				_, e := m.service.Select(id)
+				return completed{message: "Profile selected; an active session is unchanged.", err: e}
+			})
+		case 1:
+			id := m.profile.ID
+			return m.begin("Validating generated configuration; no upstream request...", func(ctx context.Context) completed {
+				return completed{message: "Approved core accepted generated configuration; connectivity is unverified.", err: m.service.CheckProfile(ctx, id, core.Listener{Port: m.listenPort()})}
+			})
+		case 2:
+			m.renameForm()
+		case 3:
+			m.removeConfirmation()
 		}
-		if len(m.sources) == 0 {
-			lines = append(lines, "No sources. Add through subscription add --url-stdin.")
+	case sourceDetailsPage:
+		switch m.cursor {
+		case 0:
+			return m.updateSource(m.source.ID)
+		case 1:
+			m.renameForm()
+		case 2:
+			m.removeConfirmation()
 		}
-	case 3:
-		lines = append(lines, "Private state events; raw core logs are unavailable.")
-		for _, event := range m.events[max(0, len(m.events)-budget):] {
-			lines = append(lines, event.At.Format("15:04:05")+"  "+event.State)
+	case sessionsPage:
+		m.stopConfirmation()
+	case connectPage:
+		switch m.cursor {
+		case 0:
+			m.page = profilesPage
+			m.cursor = 0
+		case 1:
+			m.settingForm("port")
+		case 2:
+			m.settingForm("duration")
+		case 3:
+			m.settingForm("auth")
+		case 4:
+			m.connectConfirmation()
+		case 5:
+			m.stopConfirmation()
+		case 6:
+			m.settingForm("probe")
+		case 7:
+			return m.testConnection()
+		}
+	case settingsPage:
+		m.settingForm([]string{"port", "duration", "auth", "probe"}[m.cursor])
+	case diagnosticsPage:
+		return m.doctor()
+	}
+	return nil
+}
+func (m model) listenPort() uint16 {
+	if m.port == 0 {
+		return 2080
+	}
+	return m.port
+}
+func (m *model) connectConfirmation() {
+	id := ""
+	for _, p := range m.profiles {
+		if p.Selected {
+			id = p.ID
+			break
 		}
 	}
-	if m.searching {
-		lines = append(lines, "Filter: "+m.filter)
+	if id == "" {
+		m.message = "Error: Select a profile in Profiles before connecting."
+		return
 	}
-	if m.busy {
-		lines = append(lines, "Operation in progress; Ctrl+C cancels UI operations.")
+	port, duration, path := m.listenPort(), m.duration, m.authFile
+	m.confirm(fmt.Sprintf("Start detached Proxy on 127.0.0.1:%d for %s? Exit leaves it running. Upstream unverified.", port, durationLabel(duration)), func(ctx context.Context) completed {
+		l, e := app.AuthFile(path, core.Listener{Port: port})
+		if e != nil {
+			return completed{err: e, connection: true}
+		}
+		_, e = m.service.Start(ctx, id, l, duration)
+		return completed{message: "Listener ready (upstream unverified). Detached session survives menu exit.", err: e, connection: true}
+	})
+	m.confirmLabel = "Connecting; validating config and waiting for owned listener..."
+}
+func (m *model) doctor() tea.Cmd {
+	return m.begin("Checking storage/core capabilities...", func(ctx context.Context) completed {
+		d, e := m.service.Doctor(ctx)
+		return completed{message: "Diagnostics complete; no host network changes or unsolicited probe.", err: e, doctor: &d}
+	})
+}
+func (m *model) testConnection() tea.Cmd {
+	if m.probeTarget == "" {
+		m.message = "Error: Set an explicit HTTPS probe destination first."
+		return nil
 	}
-	if m.confirmation != "" {
-		lines = append(lines, m.confirmation)
-	} else if m.message != "" {
-		lines = append(lines, m.message)
+	state, target, path := m.state, m.probeTarget, m.authFile
+	if !state.ListenerReady {
+		m.message = "Error: No ready session. Connect first."
+		return nil
 	}
-	lines = append(lines, "Tab screens | j/k move | s start | x stop | ? help | q leave")
-	if len(lines) > height {
-		lines = append(lines[:height-2], lines[len(lines)-2:]...)
+	m.confirm("Send one bounded TLS-verified request to the configured destination via the current proxy?", func(ctx context.Context) completed {
+		p, e := m.service.ProbeSession(ctx, state.ID, target, path)
+		return completed{message: "Real HTTPS proxy request passed. This result is local to this menu, not a traffic counter.", err: e, probe: &p, probeSession: state.ID}
+	})
+	return nil
+}
+func durationLabel(d time.Duration) string {
+	if d == 0 {
+		return "No deadline"
 	}
-	for i := range lines {
-		lines[i] = ansi.Truncate(lines[i], width, "")
-	}
-	return tea.NewView(strings.Join(lines, "\n"))
+	return d.String()
 }
 func Run(ctx context.Context, s *app.Service, in io.Reader, out io.Writer, color bool) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	m := model{service: s, ctx: ctx, color: color && os.Getenv("NO_COLOR") == "", state: domain.Session{State: "idle"}}
-	_, e := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
-	if e != nil && ctx.Err() == nil {
-		return domain.Fail(1, "The terminal interface failed.", "Use the CLI commands; no detached session is stopped by leaving the UI.")
+	operations := &sync.WaitGroup{}
+	m := model{service: s, ctx: ctx, operations: operations, page: menuPage, color: color && os.Getenv("NO_COLOR") == "", state: domain.Session{State: "idle"}, port: 2080}
+	final, e := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
+	wasCanceled := ctx.Err() != nil
+	cancel()
+	if last, ok := final.(model); ok && last.opCancel != nil {
+		last.opCancel()
+	}
+	// Even terminal loss waits for cancellation of in-flight owned startup/fetch.
+	operations.Wait()
+	if e != nil && !wasCanceled {
+		return domain.Fail(1, "The terminal interface failed.", "Use CLI commands; an established detached session remains running.")
 	}
 	return nil
 }

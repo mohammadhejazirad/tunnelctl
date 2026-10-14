@@ -1,5 +1,49 @@
 # Actual test evidence — 2026-10-14
 
+## Menu/private-harness increment
+
+Public tests remain synthetic and independent of any real sample file. Added
+model tests cover main-menu navigation, hidden/pasted imports, Unicode/control
+sanitization, search, details/select/rename/remove, duration settings, real
+controlled-TLS subscription add/preview/commit/refetch/remove and cancellation.
+Exit waits for operation cancellation/cleanup before checking actual session state.
+Redirected no-argument startup never reads stdin and returns help or valid JSON.
+
+Linux PTY tests cover explicit `tui` and no-argument entry, connection settings,
+real detached proxy start/request, leaving it running on exit, stale/empty
+confirmed-session stop refusal and actual stop/cleanup. The development harness
+is separately tested against a synthetic real Shadowsocks server and explicit
+trusted-CA HTTPS target; config validation, readiness, TLS request, stop and cleanup
+are separate assertions. Source/private-name/archive guard tests are synthetic.
+
+Initial complete race with separately race-built CLI/harness passed (integration
+155.607 seconds); ordinary real-core acceptance passed (12.963 seconds). Subsequent
+review adds CLI config-check/explicit-probe equivalents and re-runs final gates.
+Fresh CLI probe tests assert TLS refusal, trusted-CA success, credential/query
+target refusal and no fabricated persisted connectivity status.
+Final current-source ordinary core suite passed (13.885 seconds), second complete
+real-core race passed (155.478 seconds), and rebuilt race CLI diagnostic acceptance
+passed (12.839 seconds). Latest public full race and related harness/menu/subscription
+race passed after final assertion review. The final five archive checks passed
+(0.326 seconds), then the extracted final Linux binary passed real-core/PTY/TLS/
+private-harness acceptance (14.212 seconds). See execution-checklist.md for the
+current ignored dry-run directory and historical-vs-current evidence distinction.
+After final bounded error/remedy rendering, dist/menu-delivery/ archives passed
+membership/checksum/metadata checks (0.334 seconds) and their extracted Linux binary
+passed all controlled integration tests (13.985 seconds); historical upgrade still
+explicitly skipped. Related UI/CLI race and final vet/format/hygiene checks passed.
+Historical baseline upgrade tests skip in this increment unless
+TUNNELCTL_PREVIOUS_BIN is supplied; prior evidence below is not a new upgrade run.
+Private endpoint reports are never checked into this document or release assets.
+
+For harness acceptance, additionally build `cmd/private-test` and set
+`TUNNELCTL_PRIVATE_TEST_BIN` to its protected executable. The CI race job does
+this with `-race`, and packaged acceptance builds the development tool separately
+(it is not distributed). See [private activation](private-testing.md) and
+[menu guide](tui.md). No native non-Linux/TUN acceptance is implied.
+
+## Earlier baseline evidence
+
 Local environment: Ubuntu 26.04.1 LTS amd64, kernel 7.0.0-38-generic, UID 1000.
 Go 1.27.2 and approved sing-box 1.14.3 match recorded digests. Source is fuseblk
 with 0777/nobody semantics; secrets/core/detached executables are staged privately

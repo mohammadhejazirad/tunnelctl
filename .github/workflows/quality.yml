@@ -45,7 +45,8 @@ jobs:
           git archive a783dc63ff37359bc6e05359887c5272d723daf9 | tar -x -C "$RUNNER_TEMP/baseline"
           CGO_ENABLED=0 go -C "$RUNNER_TEMP/baseline" build -buildvcs=false -trimpath -o "$RUNNER_TEMP/baseline/tunnelctl-0.1" ./cmd/tunnelctl
           go build -race -o "$RUNNER_TEMP/tunnelctl-race" ./cmd/tunnelctl
-          TUNNELCTL_TEST_BIN="$RUNNER_TEMP/tunnelctl-race" TUNNELCTL_PREVIOUS_BIN="$RUNNER_TEMP/baseline/tunnelctl-0.1" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -race -count=1 ./...
+          go build -race -o "$RUNNER_TEMP/private-test-race" ./cmd/private-test
+          TUNNELCTL_PRIVATE_TEST_BIN="$RUNNER_TEMP/private-test-race" TUNNELCTL_TEST_BIN="$RUNNER_TEMP/tunnelctl-race" TUNNELCTL_PREVIOUS_BIN="$RUNNER_TEMP/baseline/tunnelctl-0.1" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -race -count=1 ./...
       - name: Vulnerability assessment (pinned official scanner)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.9.0

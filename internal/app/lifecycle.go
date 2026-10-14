@@ -62,10 +62,20 @@ func (s *Service) Start(ctx context.Context, key string, l core.Listener, durati
 	}
 	w.Close()
 	input.Close()
-	go cmd.Wait()
+	waited := make(chan error, 1)
+	go func() { waited <- cmd.Wait() }()
+	abort := func() {
+		platform.Terminate(cmd.Process)
+		select {
+		case <-waited:
+		case <-time.After(4 * time.Second):
+			cmd.Process.Kill()
+			<-waited
+		}
+	}
 	request := DetachedRequest{Key: key, Listener: l, Duration: duration, Paths: s.Store.Paths}
 	if e = json.NewEncoder(inWrite).Encode(request); e != nil {
-		cmd.Process.Kill()
+		abort()
 		return domain.Session{}, domain.Unexpected()
 	}
 	inWrite.Close()
@@ -86,12 +96,15 @@ func (s *Service) Start(ctx context.Context, key string, l core.Listener, durati
 		if v.Error != nil {
 			return domain.Session{}, v.Error
 		}
+		if ctx.Err() != nil {
+			return domain.Session{}, errors.Join(domain.Fail(5, "Detached start was canceled.", "Startup has been stopped."), s.StopSession(v.Session.ID))
+		}
 		return v.Session, nil
 	case <-ctx.Done():
-		cmd.Process.Kill()
+		abort()
 		return domain.Session{}, domain.Fail(5, "Detached start was canceled.", "Retry status to reconcile startup resources.")
 	case <-time.After(2*s.Timeout + 5*time.Second):
-		cmd.Process.Kill()
+		abort()
 		return domain.Session{}, domain.Fail(5, "Detached startup timed out.", "Run status and doctor before retrying.")
 	}
 }

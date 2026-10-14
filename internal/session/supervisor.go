@@ -241,12 +241,17 @@ func (s *Supervisor) serve(cancel context.CancelFunc) (*net.UnixListener, error)
 					return
 				}
 				var req struct {
-					Action string `json:"action"`
+					Action    string `json:"action"`
+					SessionID string `json:"session_id,omitempty"`
 				}
 				if store.DecodeStrict(c, 1024, &req) != nil {
 					return
 				}
 				if req.Action == "stop" {
+					if req.SessionID != "" && req.SessionID != s.snapshot().ID {
+						json.NewEncoder(c).Encode(s.snapshot())
+						return
+					}
 					s.stateTo("stopping")
 					cancel()
 				} else if req.Action != "status" {
@@ -278,6 +283,9 @@ func (s *Supervisor) cleanup() error {
 	return nil
 }
 func (s *Supervisor) request(action string) (domain.Session, error) {
+	return s.requestID(action, "")
+}
+func (s *Supervisor) requestID(action, id string) (domain.Session, error) {
 	c, e := net.DialTimeout("unix", filepath.Join(s.Runtime, "control.sock"), 500*time.Millisecond)
 	if e != nil {
 		return domain.Session{}, e
@@ -289,8 +297,9 @@ func (s *Supervisor) request(action string) (domain.Session, error) {
 		return domain.Session{}, domain.Fail(4, "The session control peer is not the current user.", "Inspect private runtime directory ownership.")
 	}
 	if e = json.NewEncoder(c).Encode(struct {
-		Action string `json:"action"`
-	}{action}); e != nil {
+		Action    string `json:"action"`
+		SessionID string `json:"session_id,omitempty"`
+	}{action, id}); e != nil {
 		return domain.Session{}, e
 	}
 	if e = uc.CloseWrite(); e != nil {
@@ -320,7 +329,22 @@ func (s *Supervisor) Status() (value domain.Session, err error) {
 	return domain.Session{State: "idle", Statistics: "Unavailable"}, nil
 }
 func (s *Supervisor) Stop() (err error) {
-	if _, e := s.request("stop"); e == nil {
+	return s.stop("")
+}
+
+// StopSession binds confirmation to a session ID at the authenticated supervisor.
+func (s *Supervisor) StopSession(id string) (err error) {
+	// No confirmed session must never become a wildcard for a new live session.
+	if id == "" {
+		id = "no-confirmed-session"
+	}
+	return s.stop(id)
+}
+func (s *Supervisor) stop(id string) (err error) {
+	if v, e := s.requestID("stop", id); e == nil {
+		if id != "" && v.ID != id {
+			return domain.Fail(6, "The confirmed session has changed.", "Refresh status and confirm again; the new session was not stopped.")
+		}
 		deadline := time.Now().Add(10 * time.Second)
 		for time.Now().Before(deadline) {
 			lock, e := store.Acquire(filepath.Join(s.Runtime, "session.lock"))
