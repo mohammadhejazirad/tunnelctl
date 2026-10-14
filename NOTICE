@@ -1,0 +1,10 @@
+tunnelctl
+Copyright 2026 tunnelctl contributors
+
+Application source is licensed under Apache-2.0. Dependency versions and checksums
+are recorded in go.mod/go.sum and the release SBOM. Cobra is Apache-2.0; Bubble Tea
+and Lip Gloss are MIT. Review transitive dependency licenses when redistributing.
+
+sing-box is a separate, user-installed GPL-3.0-or-later executable and is not
+included in application archives. Preserve its upstream license when obtaining it.
+No external core's license is changed by this application's license.

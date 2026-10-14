@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"os/signal"
-	"runtime"
 	"time"
 	"tunnelctl/internal/app"
+	"tunnelctl/internal/buildinfo"
 	"tunnelctl/internal/core"
 	"tunnelctl/internal/domain"
 	"tunnelctl/internal/platform"
@@ -35,8 +35,16 @@ type options struct {
 func Execute(args []string, in io.Reader, out, diagnostics io.Writer) int {
 	o := &options{}
 	cmd := newRoot(o, in, out)
+	cmd.SetErr(diagnostics)
 	cmd.SetArgs(args)
 	if e := cmd.Execute(); e != nil {
+		var childExit *app.ChildExit
+		if errors.As(e, &childExit) && cleanupError(e, nil) == nil {
+			if o.json {
+				json.NewEncoder(out).Encode(envelope{domain.OutputSchemaVersion, false, map[string]int{"child_exit_code": childExit.Code}, &domain.Error{Code: childExit.Code, Message: "The child command exited unsuccessfully.", Remediation: "Check the child command."}})
+			}
+			return childExit.Code
+		}
 		var de *domain.Error
 		if !errors.As(e, &de) {
 			de = &domain.Error{Code: 2, Message: "Invalid command or arguments.", Remediation: "Run tunnelctl --help and check the command syntax."}
@@ -44,7 +52,7 @@ func Execute(args []string, in io.Reader, out, diagnostics io.Writer) int {
 		// A joined cleanup failure takes precedence over a preceding failure.
 		de = cleanupError(e, de)
 		if o.json {
-			if json.NewEncoder(out).Encode(envelope{domain.SchemaVersion, false, nil, de}) != nil {
+			if json.NewEncoder(out).Encode(envelope{domain.OutputSchemaVersion, false, nil, de}) != nil {
 				return 1
 			}
 		} else {
@@ -68,17 +76,18 @@ func cleanupError(e error, fallback *domain.Error) *domain.Error {
 	return fallback
 }
 func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
-	root := &cobra.Command{Use: "tunnelctl", Short: "A terminal-only foreground proxy client", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
+	root := &cobra.Command{Use: "tunnelctl", Short: "A terminal-only proxy client", SilenceErrors: true, SilenceUsage: true, Args: cobra.NoArgs}
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(io.Discard)
+	root.PersistentPreRunE = func(*cobra.Command, []string) error { _, e := buildinfo.Current(); return e }
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.PersistentFlags().StringVar(&o.root, "data-dir", "", "Private storage root override (0700)")
 	root.PersistentFlags().StringVar(&o.core, "core", app.DefaultCore(), "Absolute path to the approved sing-box executable")
 	root.PersistentFlags().BoolVar(&o.json, "json", false, "Write schema-versioned JSON results")
-	root.PersistentFlags().BoolVar(&o.plain, "plain", false, "Use plain output (all current output is plain)")
-	root.PersistentFlags().BoolVar(&o.noColor, "no-color", false, "Disable color (all current output is uncolored)")
-	root.PersistentFlags().BoolVar(&o.nonInteractive, "non-interactive", false, "Never prompt (all current commands are noninteractive)")
+	root.PersistentFlags().BoolVar(&o.plain, "plain", false, "Disable TUI styling; CLI output is always plain")
+	root.PersistentFlags().BoolVar(&o.noColor, "no-color", false, "Disable TUI color")
+	root.PersistentFlags().BoolVar(&o.nonInteractive, "non-interactive", false, "Never prompt; refuse interactive TUI")
 	root.PersistentFlags().DurationVar(&o.timeout, "timeout", 10*time.Second, "Core preflight and readiness timeout")
 	service := func() (*app.Service, error) {
 		if o.timeout <= 0 || o.timeout > 2*time.Minute {
@@ -88,7 +97,7 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	}
 	write := func(v any) error {
 		if o.json {
-			if e := json.NewEncoder(out).Encode(envelope{domain.SchemaVersion, true, v, nil}); e != nil {
+			if e := json.NewEncoder(out).Encode(envelope{domain.OutputSchemaVersion, true, v, nil}); e != nil {
 				return domain.Unexpected()
 			}
 			return nil
@@ -122,7 +131,11 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 		return nil
 	}
 	root.AddCommand(&cobra.Command{Use: "version", Short: "Print application and pinned core versions", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
-		return write(map[string]any{"application": domain.AppVersion, "go": runtime.Version(), "pinned_core": "1.14.3", "platform": runtime.GOOS + "/" + runtime.GOARCH})
+		v, e := buildinfo.Current()
+		if e != nil {
+			return e
+		}
+		return write(v)
 	}})
 	root.AddCommand(&cobra.Command{Use: "init", Short: "Initialize private versioned storage", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
 		s, e := service()
@@ -136,6 +149,30 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	}})
 	profile := &cobra.Command{Use: "profile", Short: "Manage private connection profiles", Args: cobra.NoArgs}
 	root.AddCommand(profile)
+	root.AddCommand(subscriptionCommand(service, write, in))
+	root.AddCommand(coreCommand(service, write))
+	root.AddCommand(tuiCommand(o, service, in, out))
+	profile.AddCommand(&cobra.Command{Use: "rename PROFILE NAME", Short: "Rename a profile and preserve its label during refresh", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
+		s, e := service()
+		if e != nil {
+			return e
+		}
+		v, e := s.RenameProfile(args[0], args[1])
+		if e != nil {
+			return e
+		}
+		return write(v)
+	}})
+	profile.AddCommand(&cobra.Command{Use: "remove PROFILE", Short: "Remove an inactive profile", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		s, e := service()
+		if e != nil {
+			return e
+		}
+		if e = s.RemoveProfile(args[0]); e != nil {
+			return e
+		}
+		return write(map[string]bool{"removed": true})
+	}})
 	var file string
 	var stdin bool
 	importCmd := &cobra.Command{Use: "import", Short: "Import one Shadowsocks SIP002 link from private file or stdin", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
@@ -233,6 +270,7 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	run.Flags().UintVar(&port, "listen-port", 2080, "Loopback mixed HTTP/SOCKS listener port")
 	run.Flags().StringVar(&authFile, "proxy-auth-file", "", "Private JSON file containing local listener username and password")
 	root.AddCommand(run)
+	root.AddCommand(lifecycleCommands(o, service, write, in, out)...)
 	root.AddCommand(&cobra.Command{Use: "status", Short: "Query the live supervisor; readiness does not prove upstream connectivity", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
 		s, e := service()
 		if e != nil {
@@ -266,5 +304,22 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 		return write(v)
 	}})
 	root.SetContext(context.Background())
+	completion := &cobra.Command{Use: "completion SHELL", Short: "Generate shell completion without modifying shell files", ValidArgs: []string{"bash", "zsh", "fish", "powershell"}, Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs), RunE: func(_ *cobra.Command, args []string) error {
+		switch args[0] {
+		case "bash":
+			return root.GenBashCompletionV2(out, true)
+		case "zsh":
+			return root.GenZshCompletion(out)
+		case "fish":
+			return root.GenFishCompletion(out, true)
+		case "powershell":
+			return root.GenPowerShellCompletionWithDesc(out)
+		}
+		return nil
+	}}
+	root.AddCommand(completion)
 	return root
+}
+func commandContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(cmd.Context(), platform.StopSignals()...)
 }

@@ -1,7 +1,8 @@
 # CLI contract, schema 1
 
-Implemented commands: help, version, init, profile import/list/show/select,
-run, status, stop and doctor. Profile identifiers are full random IDs or unique
+Implemented commands: help, version, init, profile import/list/show/select/rename/
+remove; subscription add/list/show/rename/remove/update; run, start, exec, status,
+stop, logs, doctor, core list/verify, tui and completion. Profile identifiers are full random IDs or unique
 sanitized names; duplicate names require IDs. Duplicate connection identities are
 rejected, and the first import becomes selected. Imported state remains distinct
 from successful connectivity.
@@ -11,9 +12,9 @@ regular files owned by the current UID. Show always redacts credentials, includi
 when `--redacted=false` is passed: secret export is not available.
 
 Global arguments: `--data-dir`, `--core`, `--json`, `--timeout`, `--plain`,
-`--no-color`, `--non-interactive`. These last three affirm the current plain,
-uncolored, never-prompting behavior. NO_COLOR and TERM=dumb require no special
-handling while all output is already uncolored. `--config` and `--verbose` are
+`--no-color`, `--non-interactive`. CLI output is always plain; styling flags affect
+TUI. NO_COLOR disables color; TERM=dumb, nonterminal input/output, JSON and
+non-interactive refuse TUI. `--config` and `--verbose` are
 not implemented. Core path defaults to TUNNELCTL_CORE or /usr/local/bin/sing-box
 and must be absolute. Timeout is greater than zero and at most two minutes.
 
@@ -34,6 +35,19 @@ Errors use `ok: false`, `data: null`, and `error` containing `code`, `message`,
 `remediation`. Diagnostics go to stderr in plain mode; JSON errors go to stdout.
 Use `--json` before other arguments when parsing potentially invalid flags.
 Underlying error strings and user arguments are not echoed.
+
+`start` supports profile, duration, listener port and private authentication file,
+and returns after real listener readiness. Mode is proxy only; there is no dummy
+TUN flag. `exec -- COMMAND ARGS` launches directly, without constructing a shell.
+It preserves child exit status unless cleanup fails; failed-child JSON includes
+data.child_exit_code (the exception to data:null). JSON child output is sent to
+stderr. Logs are bounded last-session state events; no follow or raw core logs.
+
+Subscription add requires --name and --url-stdin; no secret URL argument exists.
+Update supports --preview, --accept-removals and --if-preview TOKEN. See
+subscriptions.md for transaction, identity, source-removal and active-session rules.
+TUI confirmation only authorizes the same shared use cases, not extra capabilities.
+Completion supports bash/zsh/fish/powershell and never installs shell changes.
 
 | Exit | Meaning |
 |---|---|

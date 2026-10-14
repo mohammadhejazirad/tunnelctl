@@ -1,0 +1,93 @@
+name: Quality gates
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Formatting, vet, tests and repository hygiene
+        run: |
+          test -z "$(gofmt -l cmd internal test)"
+          go vet ./...
+          go test -count=1 ./...
+          go run ./cmd/audit
+          go mod verify
+      - name: Validate workflow contracts (pinned source)
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          actionlint .github/workflows/quality.yml .github/workflows/release.yml
+      - name: Fetch exact approved external test core
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/core"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --output "$RUNNER_TEMP/core/core.tar.gz" https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz
+          echo 'e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  '"$RUNNER_TEMP/core/core.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/core/core.tar.gz" -C "$RUNNER_TEMP/core"
+          echo '768d31fa7f68debc067bb4626539498a1e8751d36a7b99e1a54bee6a23815f93  '"$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" | sha256sum --check
+      - name: Race unit tests and race-instrumented real-core CLI acceptance
+        env:
+          CGO_ENABLED: '1'
+          CC: gcc
+        run: |
+          gcc --version
+          mkdir -m 700 "$RUNNER_TEMP/baseline"
+          git archive a783dc63ff37359bc6e05359887c5272d723daf9 | tar -x -C "$RUNNER_TEMP/baseline"
+          CGO_ENABLED=0 go -C "$RUNNER_TEMP/baseline" build -buildvcs=false -trimpath -o "$RUNNER_TEMP/baseline/tunnelctl-0.1" ./cmd/tunnelctl
+          go build -race -o "$RUNNER_TEMP/tunnelctl-race" ./cmd/tunnelctl
+          TUNNELCTL_TEST_BIN="$RUNNER_TEMP/tunnelctl-race" TUNNELCTL_PREVIOUS_BIN="$RUNNER_TEMP/baseline/tunnelctl-0.1" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -race -count=1 ./...
+      - name: Vulnerability assessment (pinned official scanner)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          govulncheck ./...
+  portable:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Portable unit tests and race (not native proxy certification)
+        env:
+          CGO_ENABLED: '1'
+        run: go test -race -count=1 ./...
+  cross-build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - {os: linux, arch: amd64}
+          - {os: linux, arch: arm64}
+          - {os: darwin, arch: amd64}
+          - {os: darwin, arch: arm64}
+          - {os: windows, arch: amd64}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Compilation only; release builds do not require CGO
+        env:
+          GOOS: ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
+          CGO_ENABLED: '0'
+        run: go build -buildvcs=false -trimpath -o "${{ runner.temp }}/compile-only" ./cmd/tunnelctl

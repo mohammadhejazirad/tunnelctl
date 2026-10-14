@@ -1,53 +1,270 @@
 {
   "schema_version": 1,
-  "application": {"name": "tunnelctl", "version": "0.1.0", "storage_schema": 1, "output_schema": 1, "development_artifact": {"target":"linux/amd64", "path":"bin/tunnelctl", "sha256":"541df4eccaa6ece055e1ee0cf1bd3ab2fa85fe95040b3b960234244868ce05be"}},
+  "application": {
+    "name": "tunnelctl",
+    "version": "0.2.0-dev",
+    "release_candidate": "v0.2.0-rc.1",
+    "storage_schema": 2,
+    "output_schema": 1,
+    "release_status": "local dry-run; no public tag/release created"
+  },
   "verified_on": "2026-10-14",
   "go": {
     "version": "1.27.2",
     "source_url": "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz",
     "archive_sha256": "ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5",
     "application_cgo": false,
-    "application_build_flags": ["-buildvcs=false", "-trimpath"],
+    "application_build_flags": [
+      "-buildvcs=false",
+      "-trimpath"
+    ],
     "application_build_tags": []
   },
   "modules": [
-    {"path": "github.com/spf13/cobra", "version": "v1.10.1", "direct": true},
-    {"path": "github.com/spf13/pflag", "version": "v1.0.9", "direct": false},
-    {"path": "github.com/inconshreveable/mousetrap", "version": "v1.1.0", "direct": false}
+    {
+      "path": "charm.land/bubbletea/v2",
+      "version": "v2.1.0"
+    },
+    {
+      "path": "charm.land/lipgloss/v2",
+      "version": "v2.0.6"
+    },
+    {
+      "path": "github.com/aymanbagabas/go-udiff",
+      "version": "v0.4.1"
+    },
+    {
+      "path": "github.com/bits-and-blooms/bitset",
+      "version": "v1.24.6"
+    },
+    {
+      "path": "github.com/charmbracelet/colorprofile",
+      "version": "v0.4.3"
+    },
+    {
+      "path": "github.com/charmbracelet/ultraviolet",
+      "version": "v0.0.0-20261008173134-6b8d4baf91b4"
+    },
+    {
+      "path": "github.com/charmbracelet/x/ansi",
+      "version": "v0.11.9"
+    },
+    {
+      "path": "github.com/charmbracelet/x/exp/golden",
+      "version": "v0.0.0-20250806222409-83e3a29d542f"
+    },
+    {
+      "path": "github.com/charmbracelet/x/term",
+      "version": "v0.2.2"
+    },
+    {
+      "path": "github.com/charmbracelet/x/termios",
+      "version": "v0.1.1"
+    },
+    {
+      "path": "github.com/charmbracelet/x/windows",
+      "version": "v0.2.2"
+    },
+    {
+      "path": "github.com/clipperhouse/displaywidth",
+      "version": "v0.11.0"
+    },
+    {
+      "path": "github.com/clipperhouse/stringish",
+      "version": "v0.1.1"
+    },
+    {
+      "path": "github.com/clipperhouse/uax29/v2",
+      "version": "v2.7.0"
+    },
+    {
+      "path": "github.com/cpuguy83/go-md2man/v2",
+      "version": "v2.0.6"
+    },
+    {
+      "path": "github.com/inconshreveable/mousetrap",
+      "version": "v1.1.0"
+    },
+    {
+      "path": "github.com/lucasb-eyer/go-colorful",
+      "version": "v1.4.1"
+    },
+    {
+      "path": "github.com/mattn/go-runewidth",
+      "version": "v0.0.30"
+    },
+    {
+      "path": "github.com/muesli/cancelreader",
+      "version": "v0.2.2"
+    },
+    {
+      "path": "github.com/rivo/uniseg",
+      "version": "v0.4.7"
+    },
+    {
+      "path": "github.com/russross/blackfriday/v2",
+      "version": "v2.1.0"
+    },
+    {
+      "path": "github.com/spf13/cobra",
+      "version": "v1.10.1"
+    },
+    {
+      "path": "github.com/spf13/pflag",
+      "version": "v1.0.9"
+    },
+    {
+      "path": "github.com/xo/terminfo",
+      "version": "v1.0.0"
+    },
+    {
+      "path": "golang.org/x/exp",
+      "version": "v0.0.0-20231006140011-7918f672742d"
+    },
+    {
+      "path": "golang.org/x/sync",
+      "version": "v0.22.0"
+    },
+    {
+      "path": "golang.org/x/sys",
+      "version": "v0.47.0"
+    },
+    {
+      "path": "gopkg.in/check.v1",
+      "version": "v0.0.0-20161208181325-20d25e280405"
+    },
+    {
+      "path": "gopkg.in/yaml.v3",
+      "version": "v3.0.1"
+    }
   ],
-  "deferred_dependencies": ["Bubble Tea", "Lip Gloss", "Bubbles", "Xray-core"],
-  "cores": [{
-    "name": "sing-box", "version": "1.14.3", "tag": "v1.14.3",
-    "target": "linux/amd64",
-    "source_url": "https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz",
-    "release_metadata_url": "https://api.github.com/repos/SagerNet/sing-box/releases/tags/v1.14.3",
-    "archive_sha256": "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee",
-    "executable_sha256": "768d31fa7f68debc067bb4626539498a1e8751d36a7b99e1a54bee6a23815f93",
-    "revision": "7054cac5124465ffdb145870d7c01885566711b1",
-    "go_build_version": "1.26.8", "cgo": false,
-    "build_tags": ["with_gvisor", "with_quic", "with_dhcp", "with_wireguard", "with_utls", "with_acme", "with_clash_api", "with_tailscale", "with_ccm", "with_ocm", "with_cloudflared", "with_naive_outbound", "with_usbip", "with_openvpn", "with_openconnect", "badlinkname", "tfogo_checklinkname0", "with_purego"],
-    "archive_optional_library": {"name":"libcronet.so","sha256":"23109c55b08829bb1a68682a61a64852b1bbf243753b153cbd8f6e4ea2c05294","required_for_phase_1_features":false},
-    "runtime_requirements": ["Linux amd64", "procfs", "SO_PEERCRED", "flock", "local filesystem with Unix modes, fsync and atomic rename", "permitted TCP loopback sockets"],
-    "approved_capabilities": {"mode":"proxy", "protocol":"shadowsocks", "transport":"tcp", "methods":["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"], "plugins":false, "tun":false, "udp":false, "statistics":false},
-    "integrity_status": "Upstream HTTPS metadata digest and downloaded archive matched; independent signature/provenance audit pending"
-  }],
+  "deferred_dependencies": [
+    "Bubbles (not needed)",
+    "Xray-core"
+  ],
+  "cores": [
+    {
+      "name": "sing-box",
+      "version": "1.14.3",
+      "tag": "v1.14.3",
+      "target": "linux/amd64",
+      "source_url": "https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz",
+      "release_metadata_url": "https://api.github.com/repos/SagerNet/sing-box/releases/tags/v1.14.3",
+      "archive_sha256": "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee",
+      "executable_sha256": "768d31fa7f68debc067bb4626539498a1e8751d36a7b99e1a54bee6a23815f93",
+      "revision": "7054cac5124465ffdb145870d7c01885566711b1",
+      "go_build_version": "1.26.8",
+      "cgo": false,
+      "build_tags": [
+        "with_gvisor",
+        "with_quic",
+        "with_dhcp",
+        "with_wireguard",
+        "with_utls",
+        "with_acme",
+        "with_clash_api",
+        "with_tailscale",
+        "with_ccm",
+        "with_ocm",
+        "with_cloudflared",
+        "with_naive_outbound",
+        "with_usbip",
+        "with_openvpn",
+        "with_openconnect",
+        "badlinkname",
+        "tfogo_checklinkname0",
+        "with_purego"
+      ],
+      "archive_optional_library": {
+        "name": "libcronet.so",
+        "sha256": "23109c55b08829bb1a68682a61a64852b1bbf243753b153cbd8f6e4ea2c05294",
+        "required_for_phase_1_features": false
+      },
+      "runtime_requirements": [
+        "Linux amd64",
+        "procfs",
+        "SO_PEERCRED",
+        "flock",
+        "local filesystem with Unix modes, fsync and atomic rename",
+        "permitted TCP loopback sockets"
+      ],
+      "approved_capabilities": {
+        "mode": "proxy",
+        "protocol": "shadowsocks",
+        "transport": "tcp",
+        "methods": [
+          "aes-128-gcm",
+          "aes-256-gcm",
+          "chacha20-ietf-poly1305"
+        ],
+        "plugins": false,
+        "tun": false,
+        "udp": false,
+        "statistics": false
+      },
+      "integrity_status": "Upstream HTTPS metadata digest and downloaded archive matched; independent signature/provenance audit pending"
+    }
+  ],
   "platforms": [
-    {"target":"linux/amd64", "build":"passed", "runtime":"tested", "scope":"Foreground CLI/proxy only", "os":"Ubuntu 26.04.1 LTS", "kernel":"7.0.0-38-generic", "test_uid":1000, "private_storage":"Unix-permission-supporting /tmp; source-workspace fuseblk was correctly refused for secrets/core"},
-    {"target":"linux/arm64", "build":"passed", "runtime":"unsupported", "scope":"Compilation only; no approved core artifact/native test"},
-    {"target":"darwin/arm64", "build":"passed", "runtime":"unsupported", "scope":"Compilation only; native storage and session adapters pending"},
-    {"target":"darwin/amd64", "build":"passed", "runtime":"unsupported", "scope":"Compilation only; native storage and session adapters pending"},
-    {"target":"windows/amd64", "build":"passed", "runtime":"unsupported", "scope":"Compilation only; Windows ACL, IPC and process lifecycle pending"}
+    {
+      "target": "linux/amd64",
+      "build": "passed",
+      "runtime": "tested",
+      "scope": "Foreground/detached/exec Shadowsocks TCP proxy, transactional HTTPS subscriptions, keyboard TUI",
+      "os": "Ubuntu 26.04.1 LTS",
+      "kernel": "7.0.0-38-generic",
+      "test_uid": 1000,
+      "private_storage": "Unix-permission-supporting /tmp; source-workspace fuseblk was correctly refused for secrets/core"
+    },
+    {
+      "target": "linux/arm64",
+      "build": "passed",
+      "runtime": "unsupported",
+      "scope": "Compilation only; no approved core artifact/native test"
+    },
+    {
+      "target": "darwin/arm64",
+      "build": "passed",
+      "runtime": "unsupported",
+      "scope": "Compilation only; native storage and session adapters pending"
+    },
+    {
+      "target": "darwin/amd64",
+      "build": "passed",
+      "runtime": "unsupported",
+      "scope": "Compilation only; native storage and session adapters pending"
+    },
+    {
+      "target": "windows/amd64",
+      "build": "passed",
+      "runtime": "unsupported",
+      "scope": "Compilation only; Windows ACL, IPC and process lifecycle pending"
+    }
   ],
   "verification": {
-    "unit_and_lifecycle":"passed",
-    "real_core_config_check":"passed for IPv4, IPv6 literals and hostname upstream configs",
-    "real_proxy_requests":"passed for all three AEAD methods; HTTP, SOCKS5 hostname and TLS-verified HTTP CONNECT",
-    "fault_tests":"passed: port conflict, concurrent session, wrong credentials, duration, SIGINT/SIGTERM/SIGHUP, core crash, supervisor SIGKILL, cleanup conflict and forced-stop timeout",
-    "fuzz":"passed, 10-second bounded parser campaign",
-    "vet":"passed",
-    "race":"not run: CGO race build blocked by absent gcc/C compiler",
-    "privileged_host_network_tests":"not run; no privileged network features implemented",
-    "packet_capture_and_performance":"not measured",
-    "native_macos_windows_arm64":"not run"
-  }
+    "unit_and_lifecycle": "passed",
+    "real_core_config_check": "passed for IPv4, IPv6 literals and hostname upstream configs",
+    "real_proxy_requests": "passed for all three AEAD methods; HTTP, SOCKS5 hostname and TLS-verified HTTP CONNECT",
+    "fault_tests": "passed: port conflict, concurrent session, wrong credentials, duration, SIGINT/SIGTERM/SIGHUP, core crash, supervisor SIGKILL, cleanup conflict and forced-stop timeout",
+    "fuzz": "passed, 10-second bounded parser campaign",
+    "vet": "passed",
+    "race": "passed: full suite with race CLI, child-report capture and actual baseline upgrade (integration 142.950s); final privilege/profile/upgrade targeted checks 46.832s",
+    "privileged_host_network_tests": "not run; no privileged network features implemented",
+    "packet_capture_and_performance": "not measured",
+    "native_macos_windows_arm64": "not run",
+    "subscriptions": "passed: trusted local HTTPS, HMAC previews, SSRF/TLS/redirect/limits/cancel; staged rename/removal and filesystem commit failure preserve data; real CLI-to-proxy",
+    "tui": "passed: compact/resize model checks and native Linux PTY rendering/navigation/quit smoke",
+    "vulnerability_scan": "govulncheck v1.9.0: no vulnerabilities found 2026-10-14 (not a guarantee)",
+    "release": "passed: five local candidate archives, checksums/metadata/manual installation lifecycle; extracted Linux binary real-core suite 7.968 seconds; no public release",
+    "github_actions": "configured and commit-pinned; not executed remotely in this turn",
+    "upgrade": "passed: actual 0.1.0 baseline executable, exact schema-1 backup and stable profile identity/selection; legacy refusal code 2 preserves newer data; upgraded real request",
+    "privilege": "passed: set-ID refusal and verified unprivileged real core; file capabilities refused, no elevated execution"
+  },
+  "race": {
+    "go": "1.27.2",
+    "cgo": true,
+    "compiler": "GCC 15.2.0-16ubuntu1, isolated verified Ubuntu packages",
+    "release_cgo": false
+  },
+  "module_inventory_scope": "complete pinned module graph; shipped-module subset and license texts are recorded in the release SBOM/archives"
 }

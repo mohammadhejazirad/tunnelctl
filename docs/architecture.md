@@ -14,11 +14,11 @@ defines the backend/process contracts; `internal/core/singbox` renders, checks,
 starts, verifies readiness and stops the pinned executable. Linux identity,
 locking, peer credentials and child configuration live in `internal/platform`.
 
-No empty future packages were created. TUI will call app services and maintain a
-separate presentation model. Network operations will produce asynchronous events;
-bounded logs, small-terminal rendering, keyboard access, NO_COLOR and TERM=dumb
-are Phase 2 requirements. Bubble Tea/Lip Gloss are deferred dependencies: select
-and lock compatible versions when actually implementing TUI, avoiding unused code.
+No empty future packages were created. The Bubble Tea v2/Lip Gloss v2 TUI calls
+the same app services and maintains a separate presentation model. Async commands,
+one-second refresh, bounded events, compact views, keyboard navigation and color/
+nonterminal rules keep networking outside the view loop. It never changes host
+networking; leaving the UI does not stop a detached session.
 
 The adapter approves one exact binary digest and schema version. It holds the
 verified executable inode open and executes `/proc/self/fd/N` with independent
@@ -28,7 +28,14 @@ Every generated config is validated with that exact core before launching the
 listener. The config's pathname is unlinked immediately; the child reads inherited
 descriptor 3. No raw imported configs reach the core.
 
-One foreground supervisor holds a kernel flock per private runtime directory.
+One foreground or explicit detached supervisor holds a kernel flock per runtime.
+Detached startup reexecutes the protected application with readiness and bounded
+private request pipes; listener credentials never enter process arguments. Child
+execution pins the running application inode instead of reopening its replaceable
+installation pathname. Same-UID in-place executable mutation remains outside scope.
+Child
+exec creates an isolated runtime, direct child and ephemeral listener, without
+touching the unrelated main session or global environment.
 Status/stop use a private Unix socket, and both client and server check SO_PEERCRED
 UID. Only the supervisor signals its live Go child Process handle. Durable session
 metadata is informational, never authority to kill a PID. Linux procfs socket inode
@@ -44,7 +51,9 @@ conflict and is never converted into permission to signal a stored PID.
 
 Ordinary filesystem atomicity and flock are assumed on a local Linux filesystem.
 Network filesystems and filesystems lacking Unix modes are unsupported. Storage
-schema 1 has no migration yet: unknown schemas fail without overwriting content.
+schema 2 has a backup-preserving schema-1 migration; unknown newer schemas fail
+without overwriting content. Subscription source/profile updates use one file,
+strict bounded parsing, per-source locks and revision CAS. See subscriptions.md.
 The `--data-dir` override replaces the proposed generic `--config` in Phase 1;
 it selects all four private directory roots consistently rather than introducing
 an unimplemented application-config file format.

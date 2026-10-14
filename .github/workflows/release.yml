@@ -1,0 +1,119 @@
+name: Prepare draft release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  gates:
+    uses: ./.github/workflows/quality.yml
+  package:
+    needs: gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Build all archives from the exact clean SemVer tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: go run ./cmd/release --tag "$RELEASE_TAG" --out dist
+      - name: Verify archives and native artifact metadata
+        env:
+          TUNNELCTL_RELEASE_DIR: ${{ github.workspace }}/dist
+          TUNNELCTL_RELEASE_TAG: ${{ github.ref_name }}
+        run: go test -count=1 -v ./test/release
+      - name: Test extracted release binary with real core
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/installed" "$RUNNER_TEMP/core"
+          tar -xzf dist/tunnelctl_*_linux_amd64.tar.gz -C "$RUNNER_TEMP/installed"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --output "$RUNNER_TEMP/core/core.tar.gz" https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz
+          echo 'e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  '"$RUNNER_TEMP/core/core.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/core/core.tar.gz" -C "$RUNNER_TEMP/core"
+          TUNNELCTL_TEST_BIN="$RUNNER_TEMP/installed/tunnelctl" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -count=1 -v ./test/integration
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+  native-metadata:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04-arm, suffix: linux_arm64_compile-only.tar.gz}
+          - {runner: macos-14, suffix: darwin_arm64_compile-only.tar.gz}
+          - {runner: macos-26-intel, suffix: darwin_amd64_compile-only.tar.gz}
+          - {runner: windows-2022, suffix: windows_amd64_compile-only.zip}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets
+          path: dist
+      - name: Native version/help only; not proxy runtime certification
+        if: runner.os != 'Windows'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/metadata"
+          tar -xzf "dist/tunnelctl_${RELEASE_TAG#v}_${RELEASE_SUFFIX}" -C "$RUNNER_TEMP/metadata"
+          result=$("$RUNNER_TEMP/metadata/tunnelctl" version --json)
+          jq -e --arg tag "$RELEASE_TAG" --arg version "${RELEASE_TAG#v}" '.ok == true and .data.tag == $tag and .data.application == $version' <<< "$result"
+          "$RUNNER_TEMP/metadata/tunnelctl" --help
+      - name: PowerShell native metadata/help only
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          $releaseVersion = $env:RELEASE_TAG.Substring(1)
+          $destination = Join-Path $env:RUNNER_TEMP 'metadata'
+          Expand-Archive -LiteralPath "dist/tunnelctl_${releaseVersion}_$($env:RELEASE_SUFFIX)" -DestinationPath $destination
+          $binary = Join-Path $destination 'tunnelctl.exe'
+          $result = (& $binary version --json) | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $result.ok -or $result.data.tag -ne $env:RELEASE_TAG -or $result.data.application -ne $releaseVersion) { throw 'Binary/tag mismatch' }
+          & $binary --help
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact help failed' }
+  draft:
+    needs: [package, native-metadata]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets
+          path: dist
+      - name: Check transferred assets
+        working-directory: dist
+        run: sha256sum --check checksums.txt
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-checksums: dist/checksums.txt
+      - name: Create draft only; refuse existing releases and never overwrite assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'An existing release must never be overwritten.' >&2
+            exit 1
+          fi
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" dist/* --verify-tag --draft "${flags[@]}" --title "$RELEASE_TAG" --notes-file dist/release-notes.md

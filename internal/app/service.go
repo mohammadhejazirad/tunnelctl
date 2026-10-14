@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -88,7 +89,7 @@ func (s *Service) Select(key string) (domain.PublicProfile, error) {
 	return out, e
 }
 func (s *Service) supervisor() *session.Supervisor {
-	return &session.Supervisor{Runtime: s.Store.Paths.Runtime}
+	return &session.Supervisor{Runtime: s.Store.Paths.Runtime, LogPath: filepath.Join(s.Store.Paths.State, "events.json")}
 }
 func (s *Service) Status() (domain.Session, error) { return s.supervisor().Status() }
 func (s *Service) Stop() error                     { return s.supervisor().Stop() }

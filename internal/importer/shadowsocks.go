@@ -28,7 +28,7 @@ func Parse(r io.Reader) (domain.Profile, error) {
 	}
 	s := strings.TrimSpace(string(data))
 	if !strings.HasPrefix(s, "ss://") {
-		return p, domain.Fail(3, "Only Shadowsocks SIP002 links are supported in this release.", "Raw configurations, subscriptions and other protocols are deferred.")
+		return p, domain.Fail(3, "Only Shadowsocks SIP002 links are supported in this release.", "Use subscription commands for supported feeds; raw configurations and other protocols are unsupported.")
 	}
 	if strings.ContainsAny(s, "\r\n\t") {
 		return p, invalid()

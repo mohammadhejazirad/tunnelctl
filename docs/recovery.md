@@ -3,8 +3,9 @@
 Normal stop: press Ctrl+C in the foreground terminal, or run `tunnelctl stop`
 from another terminal as the same user with the same --data-dir (if overridden).
 Repeated stop is safe. SIGTERM/SIGHUP behave like Ctrl+C. Closing a terminal only
-delivers this behavior if the terminal/shell actually sends SIGHUP. Detached
-execution, nohup and service lifecycles are not supported contracts.
+delivers this behavior if the terminal/shell actually sends SIGHUP. Explicit `start`
+detaches into a new session: terminal closure and TUI quit leave it running. Use
+duration or `stop`. Boot services and arbitrary nohup lifecycles are unsupported.
 
 If the core crashes, run fails with code 5 and cleans its socket/metadata. If the
 supervisor dies abruptly, Linux Pdeathsig stops the core; stale nonsecret metadata
@@ -22,8 +23,10 @@ specific conflicting resource before retrying; do not delete an entire XDG root.
 Secret config files normally have no pathname while running. Interrupted profile
 updates may leave 0600 `.atomic-*` staging files inside the private config directory.
 They are ignored. Keep a private backup of profiles.json before manual repair;
-restore only a known good schema-1 file. A staging file is not automatically a
-valid backup. No automatic migration or repair overwrites malformed storage.
+restore only a known good schema compatible with your binary. Schema-1 migration
+preserves profiles.schema1.backup.json; schema-2 backups include subscription URLs.
+A staging file is not automatically valid. No repair overwrites malformed data.
+See versioning.md before attempting a downgrade.
 
 There are no routes, DNS settings, firewall rules, services or shell configuration
-to roll back in Phase 1. Do not reset those systems as a proxy recovery step.
+to roll back in this proxy release. Do not reset them as a proxy recovery step.

@@ -25,6 +25,9 @@ type Options struct {
 }
 type Supervisor struct {
 	Runtime  string
+	LogPath  string
+	events   []Event
+	logErr   error
 	mu       sync.Mutex
 	state    domain.Session
 	process  core.Process
@@ -47,11 +50,25 @@ func (s *Supervisor) snapshot() domain.Session {
 	}
 	return v
 }
-func (s *Supervisor) stateTo(state string) { s.mu.Lock(); s.state.State = state; s.mu.Unlock() }
+func (s *Supervisor) stateTo(state string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.State = state
+	if s.LogPath != "" {
+		s.events = append(s.events, Event{time.Now().UTC(), s.state.ID, state})
+		if len(s.events) > 256 {
+			s.events = s.events[len(s.events)-256:]
+		}
+		if e := store.AtomicJSON(s.LogPath, s.events); e != nil {
+			s.logErr = domain.Fail(7, "Cannot persist private session events.", "Check state storage; session cleanup was still attempted.")
+		}
+	}
+}
 func (s *Supervisor) Run(ctx context.Context, a core.Adapter, o Options, onReady func(domain.Session) error) (err error) {
 	// Keep the Linux parent-death signal tied to this supervisor's living OS thread.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	defer func() { s.mu.Lock(); err = errors.Join(err, s.logErr); s.mu.Unlock() }()
 	lock, e := store.Acquire(filepath.Join(s.Runtime, "session.lock"))
 	if e != nil {
 		return e
@@ -69,6 +86,7 @@ func (s *Supervisor) Run(ctx context.Context, a core.Adapter, o Options, onReady
 	}
 	s.state = domain.Session{ID: id, State: "preflight", ProfileID: o.Profile.ID, Statistics: "Unavailable"}
 	s.listener = o.Listener
+	s.stateTo("preflight")
 	server, e := s.serve(cancel)
 	if e != nil {
 		return e
@@ -165,6 +183,7 @@ func (s *Supervisor) Run(ctx context.Context, a core.Adapter, o Options, onReady
 		s.state.Deadline = &deadline
 	}
 	s.mu.Unlock()
+	s.stateTo("listener_ready")
 	if e = store.AtomicJSON(filepath.Join(s.Runtime, "session.json"), s.snapshot()); e != nil {
 		return e
 	}

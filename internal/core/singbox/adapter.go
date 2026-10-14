@@ -51,6 +51,10 @@ func Open(path string) (*Adapter, error) {
 		f.Close()
 		return nil, domain.Fail(4, "The core executable must be a regular executable file and not group/world writable.", "Use the verified pinned core in a protected location.")
 	}
+	if !platform.UnprivilegedExecutable(f) {
+		f.Close()
+		return nil, domain.Fail(4, "Proxy mode refuses set-ID or file-capability core executables.", "Use an unprivileged verified core; do not grant persistent capabilities for proxy mode.")
+	}
 	h := sha256.New()
 	if _, e = io.Copy(h, f); e != nil {
 		f.Close()

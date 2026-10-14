@@ -130,6 +130,9 @@ func AtomicJSON(path string, value any) error {
 	if e != nil {
 		return domain.Unexpected()
 	}
+	return AtomicBytes(path, b)
+}
+func AtomicBytes(path string, b []byte) error {
 	if len(b) > MaxStoreBytes {
 		return domain.Fail(2, "Storage size limit exceeded.", "Reduce the number or size of stored profiles.")
 	}
@@ -175,8 +178,26 @@ func (s *Store) Load() (domain.Settings, error) {
 	if e = DecodeStrict(f, MaxStoreBytes, &v); e != nil {
 		return v, corrupt()
 	}
-	if v.SchemaVersion != domain.SchemaVersion {
+	if v.SchemaVersion != domain.SchemaVersion && v.SchemaVersion != 1 {
 		return v, domain.Fail(3, "The storage schema is unsupported.", "Use a compatible application; no automatic destructive migration is performed.")
+	}
+	if v.SchemaVersion == 1 && len(v.Subscriptions) != 0 {
+		return v, corrupt()
+	}
+	subs := map[string]bool{}
+	names := map[string]bool{}
+	if len(v.Subscriptions) > 1000 {
+		return v, corrupt()
+	}
+	for _, sub := range v.Subscriptions {
+		if len(sub.PreviewKey) != 32 || strings.Trim(sub.PreviewKey, "0123456789abcdef") != "" || sub.Revision == 0 {
+			return v, corrupt()
+		}
+		if len(sub.ID) != 32 || strings.Trim(sub.ID, "0123456789abcdef") != "" || subs[sub.ID] || sub.Name == "" || len(sub.Name) > 256 || domain.SafeName(sub.Name) != sub.Name || names[sub.Name] || len(sub.URL) > 16384 {
+			return v, corrupt()
+		}
+		subs[sub.ID] = true
+		names[sub.Name] = true
 	}
 	if len(v.Profiles) > 10000 {
 		return v, corrupt()
@@ -188,6 +209,9 @@ func (s *Store) Load() (domain.Settings, error) {
 			return v, corrupt()
 		}
 		ids[p.ID] = true
+		if p.SubscriptionID != "" && !subs[p.SubscriptionID] {
+			return v, corrupt()
+		}
 		found = found || p.ID == v.Selected
 	}
 	if !found {
@@ -208,9 +232,26 @@ func (s *Store) Update(fn func(*domain.Settings) error) (err error) {
 	if e != nil {
 		return e
 	}
+	old, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return domain.Unexpected()
+	}
+	migrate := v.SchemaVersion == 1
 	if e = fn(&v); e != nil {
 		return e
 	}
+	if migrate {
+		backup := filepath.Join(s.Paths.Config, "profiles.schema1.backup.json")
+		if _, e := os.Lstat(backup); os.IsNotExist(e) {
+			if e = AtomicBytes(backup, old); e != nil {
+				return e
+			}
+		} else if e != nil {
+			return permission()
+		}
+	}
+	v.SchemaVersion = domain.SchemaVersion
+	v.Revision++
 	return AtomicJSON(filepath.Join(s.Paths.Config, "profiles.json"), v)
 }
 func Resolve(v domain.Settings, key string) (domain.Profile, error) {

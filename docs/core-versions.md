@@ -4,6 +4,10 @@ Verified against official upstream metadata/source on 2026-10-14:
 
 - Go 1.27.2: https://go.dev/dl/ ; archive https://go.dev/dl/go1.27.2.linux-amd64.tar.gz
 - Cobra 1.10.1: https://github.com/spf13/cobra/tree/v1.10.1 (Go requirement 1.15)
+- Bubble Tea v2.1.0: https://github.com/charmbracelet/bubbletea/tree/v2.1.0
+  (`charm.land/bubbletea/v2`, Go requirement 1.26); official KeyPressMsg/NewView API.
+- Lip Gloss v2.0.6: https://github.com/charmbracelet/lipgloss/tree/v2.0.6
+  (`charm.land/lipgloss/v2`, Go requirement 1.25).
 - sing-box 1.14.3: https://github.com/SagerNet/sing-box/releases/tag/v1.14.3
 
 Core archive:
@@ -19,7 +23,8 @@ Download as a normal user into a private directory. Verify the archive before
 extracting using `sha256sum`, inspect archive paths/types, extract only under that
 directory, then verify the executable hash. No downloaded script is necessary.
 The command path must be absolute and the executable not group/world writable.
-Preserve the upstream license. Doctor probes the version without connecting.
+Preserve the upstream license. `core verify` checks executable digest/version;
+doctor additionally checks private storage. Neither connects to an upstream.
 
 The adapter was checked against the exact-tag `option/shadowsocks.go`,
 `option/simple.go`, `option/route.go`, `cmd/sing-box/cmd_check.go` and dial/DNS

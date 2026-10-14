@@ -1,80 +1,110 @@
-# Test evidence — 2026-10-14
+# Actual test evidence — 2026-10-14
 
-Environment: Ubuntu 26.04.1 LTS, Linux 7.0.0-38-generic x86_64, UID 1000.
-Go 1.27.2 and the exact official sing-box 1.14.3 linux-amd64 binary were verified
-against recorded SHA-256 digests. Tools/caches were created in a private /tmp
-directory because Go/core were not initially available on PATH. The approved core
-and license are at `/tmp/tunnelctl-tools.SSdBLI/sing-box-1.14.3-linux-amd64/`.
-The app binary is `bin/tunnelctl`. A trial copy into the project drive was rejected:
-that fuseblk mount exposes 0777 modes and nobody ownership despite install -m.
-The redundant trial copy was removed; private runtime/profile state and the core
-remain on permission-supporting Linux filesystems. This verifies refusal rather
-than weakening permissions to accommodate the project mount.
+Local environment: Ubuntu 26.04.1 LTS amd64, kernel 7.0.0-38-generic, UID 1000.
+Go 1.27.2 and approved sing-box 1.14.3 match recorded digests. Source is fuseblk
+with 0777/nobody semantics; secrets/core/detached executables are staged privately
+on Unix-permission-supporting /tmp, not this source drive.
 
-Executed successfully:
+The absent C compiler was resolved **without root or host package installation**:
+isolated gcc-15-x86-64-linux-gnu and libgcc-15-dev 15.2.0-16ubuntu1 packages were
+downloaded, checked against apt SHA512 metadata and extracted under private /tmp.
+Existing binutils, C preprocessor and libc development components were used.
+Race CGO is separate from CGO=0 ordinary/release builds.
 
-- `go build -buildvcs=false -trimpath -o bin/tunnelctl ./cmd/tunnelctl`
-- `go test -count=1 -v ./...` with TUNNELCTL_TEST_BIN and TUNNELCTL_TEST_CORE set
-- `go vet ./...`
-- `go test ./internal/importer -fuzz=FuzzParse -fuzztime=10s -parallel=2`
-- Cross builds with CGO_ENABLED=0: Windows amd64, macOS amd64/arm64, Linux arm64
+Passed locally:
 
-Real-core suite passed in approximately four seconds. Each synthetic server binds
-127.0.0.1, uses a supported AEAD method and a synthetic password, and forwards to
-controlled loopback HTTP/TLS targets. Requests actually traverse the generated
-mixed listener and Shadowsocks outbound; a wrong upstream password produces failure
-and never reaches the target. Local listener authentication is required in the
-method matrix: unauthenticated requests fail, authenticated requests succeed.
-SOCKS5 proxy-side hostname delivery and upstream hostname resolution were tested.
-HTTPS uses HTTP CONNECT and an explicitly trusted test certificate with verification
-enabled, not InsecureSkipVerify. IPv6 literal configs passed real `check`; IPv6
-traffic behavior was not tested or certified.
+- Unit tests, go vet, gofmt checks, go mod verify and git diff whitespace check.
+- Full race suite with a **separately race-built CLI** and real pinned core. An
+  expanded full run including actual baseline upgrade completed in 142.950 seconds
+  for integration; no race reported. Private child report capture also checks races
+  hidden by production detached diagnostics suppression.
+- Real trusted loopback HTTPS subscription tests: preview without mutation,
+  ETag/Last-Modified/304, stable IDs/labels/selection, malformed/empty/500 rejection,
+  TLS refusal, bounded gzip/decode/count, SSRF, mixed DNS answers, reserved address
+  policy, cross-origin/downgrade/redirect-limit refusal and cancellation.
+- Concurrent source lock, staged rename/removal CAS conflicts, recovery after
+  cancellation and **actual filesystem write-permission commit failure** preserve
+  healthy data/concurrent changes. These are not power-loss/disk-full certification.
+- CLI subscription add -> preview -> commit -> selection -> real proxy request;
+  corrupted refresh preserves private data and source removal leaves session alive.
+- Real Shadowsocks core requests for all three approved AEAD methods, authenticated
+  HTTP/SOCKS, hostname delivery/resolution and TLS-verified CONNECT with a trusted
+  synthetic CA. Wrong credentials fail without reaching the target.
+- Port/session collision, duration, repeated stop, SIGINT/SIGTERM/SIGHUP, core crash,
+  supervisor SIGKILL/parent-death termination and stale cleanup.
+- Detached real request and isolated exec/curl, child exit 23 preserved, unrelated
+  detached session identity unchanged, state logs and repeated stop.
+- TUI model compact/resize/control-sequence checks and Linux PTY smoke: render,
+  keyboard navigation/help, quit, no synthetic password disclosure. This is not
+  comprehensive visual/accessibility certification or native macOS/Windows TUI.
+- Schema-1 migration backup, failed-write preservation and newer schema refusal;
+  strict duplicate/unknown/trailing/deep/invalid-UTF8 JSON and permission checks.
+- Actual executable upgrade from baseline commit a783dc6 (0.1.0 development),
+  profile identity/selection and exact schema-1 backup preserved; old binary refuses
+  newer data without changing bytes; upgraded proxy sends a real request. Dedicated
+  race test passed in 10.61 seconds; included in the expanded full run as well.
+- Ordinary/set-ID executable checks; proxy refuses set-ID/file-capability elevation.
+- SemVer/prerelease/build-metadata validation, dirty marker and tag mismatch refusal.
+- Local release builder produced five archives, SBOM, checksums and license texts;
+  initial extraction/installed help/version/init/status/stop/manual replacement/
+  uninstall tests passed. Final archive/extracted-core evidence is recorded in the
+  execution checklist; artifacts are local dry-runs, not a public release.
+  Extracted final-binary real-core suite passed in 7.968 seconds.
+- govulncheck **v1.9.0**: `No vulnerabilities found.` This is time-specific
+  known-vulnerability assessment, not absence of defects.
+- actionlint **v1.7.12** validated both workflow files. Narrow repository hygiene
+  scanner passed; it is not exhaustive secret detection.
 
-Fault assertions passed: unavailable port, session lock collision, repeated stop,
-duration deadline, SIGINT/SIGTERM/SIGHUP, core SIGKILL, supervisor SIGKILL and core
-parent-death termination, stale metadata detection and safe cleanup. A test-owned
-helper process ignores SIGTERM to prove graceful-timeout escalation to forced kill.
-Lifecycle fakes exercise rejected config, readiness deadline and an unexpected
-runtime file type that must produce code 7 and remain intact. These fakes do not
-replace real networking evidence.
+Baseline parser fuzz evidence: 22,541 executions in a 10-second bounded campaign,
+approximately 11.026 seconds including shutdown. Repeat for code changes; a bounded
+fuzz run does not prove absence of bugs. Test lifecycle fakes only cover rejection,
+readiness timeout, cleanup conflict and stop escalation, not actual connectivity.
 
-Unit tests cover URI encoding/Base64 variants, endpoint/cipher/field validation,
-input/decode bounds, terminal sequence removal, credential redaction, valid CLI
-JSON, private file import and permissions, same-filesystem atomic transactions,
-locking, symlink refusal, unsupported schemas, duplicate JSON fields, excessive
-nesting and trailing values. Parser fuzzing found no failing input in the recorded
-bounded campaigns; that does not establish absence of defects.
-The final 10-second fuzz campaign completed 22,541 executions (11.026 seconds wall
-time including shutdown); earlier campaigns exercised additional inputs.
-
-The sandbox initially forbade socket creation. Real loopback tests were run with
-approved execution outside that socket restriction. No test changes default
-routes, system DNS, firewall, global proxy, shell files or boot services. No root,
-remote production server or public VPN server was used.
-
-Race verification did **not run**: default `go test -race` reported that CGO was
-required; explicitly enabling CGO then failed because gcc was unavailable. Native
-macOS/Windows/arm64, PowerShell, the broader Linux matrix, multiple-user hostile IPC,
-disk-full/power-loss fault injection, packet captures, DNS/IPv6 leak policies and
-performance targets remain unverified. Cross builds establish compilation only.
+Real-core acceptance explicitly skips without both test variables. Artifact tests
+skip without release directory/tag. Never count these skips as network/package
+success. Loopback tests use approved execution outside the sandbox's socket
+restriction. No host default-route/DNS/firewall/global-proxy/service changes.
 
 ## Reproduce
 
-Use the pinned Go/core, an ordinary Linux user and a private local filesystem.
-Allow local sockets. From the repository:
+Use Go 1.27.2, approved core, ordinary Linux user, permitted loopback and private
+local storage. A supported C compiler is required only for race:
 
 ```sh
-go build -buildvcs=false -trimpath -o bin/tunnelctl ./cmd/tunnelctl
-TUNNELCTL_TEST_BIN="$PWD/bin/tunnelctl" \
-TUNNELCTL_TEST_CORE="/absolute/path/to/approved/sing-box" \
-go test -count=1 -v ./...
+go mod download
+go mod verify
 go vet ./...
+go test -count=1 ./...
+make integration CORE=/absolute/path/to/approved/sing-box
+make race CORE=/absolute/path/to/approved/sing-box
 go test ./internal/importer -fuzz=FuzzParse -fuzztime=10s -parallel=2
+go run ./cmd/audit
+go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+govulncheck ./...
+go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+actionlint .github/workflows/quality.yml .github/workflows/release.yml
+go run ./cmd/release --tag v0.2.0-rc.1 --dry-run --out dist
+TUNNELCTL_RELEASE_DIR="$PWD/dist" TUNNELCTL_RELEASE_TAG=v0.2.0-rc.1 go test -v ./test/release
 ```
 
-`make integration CORE=/absolute/path/to/approved/sing-box` builds and runs the
-same unit/real-core suite. Without the two explicit test environment variables,
-real acceptance tests skip with an explanation. After installing a C compiler,
-run `CGO_ENABLED=1 go test -race ./...`, then run the integration suite with a
-race-instrumented application binary as well; race instrumentation on the test
-runner alone does not instrument a separately built CLI child.
+Artifact tests inspect tar/ZIP membership, licenses/docs, digests, target metadata,
+CGO=0 and injected tag/version on **all** binaries; native execution occurs only
+for Linux amd64. Extract that Linux binary into a protected directory, then set
+TUNNELCTL_TEST_BIN to it and TUNNELCTL_TEST_CORE to the approved core and execute
+`go test -count=1 -v ./test/integration` for real packaged lifecycle evidence.
+
+For historical upgrade tests, build cmd/tunnelctl from commit
+a783dc63ff37359bc6e05359887c5272d723daf9 in a new private temporary source directory,
+then set TUNNELCTL_PREVIOUS_BIN to that protected executable. CI uses git archive
+and Go -C without altering the worktree or creating tags.
+
+## Not established
+
+Remote GitHub Actions, native macOS/Windows/ARM64, PowerShell runtime, other Linux
+distributions/musl, package managers, public-binary upgrade, multi-user hostile IPC,
+every disk/power-loss boundary, privileged TUN/journal/watchdog/SSH/DNS/IPv6 rollback,
+services, Xray, packet capture, performance/resource budgets and an independent
+security/supply-chain review. Cross builds prove compilation only. The available
+rootless network namespace and /dev/net/tun are not certification of host managers
+or remote management recovery; Docker access is denied and no disposable host-like
+VM acceptance environment was provisioned. Unsupported features remain disabled.

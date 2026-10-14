@@ -61,6 +61,16 @@ func newFixture(t *testing.T, method string) *fixture {
 	if bin == "" || core == "" {
 		t.Skip("set TUNNELCTL_TEST_BIN and TUNNELCTL_TEST_CORE to run real-core acceptance tests")
 	}
+	// Detached supervision needs a protected executable; the development source
+	// drive may not implement Unix permissions. Stage the exact built bytes privately.
+	binaryBytes, e := os.ReadFile(bin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	bin = filepath.Join(private(t), "tunnelctl")
+	if e = os.WriteFile(bin, binaryBytes, 0700); e != nil {
+		t.Fatal(e)
+	}
 	f := &fixture{t, bin, core, private(t), method, freePort(t)}
 	config := map[string]any{"log": map[string]any{"disabled": true}, "inbounds": []any{map[string]any{"type": "shadowsocks", "listen": "127.0.0.1", "listen_port": f.upstream, "method": method, "password": "synthetic-upstream-password", "network": "tcp"}}, "outbounds": []any{map[string]any{"type": "direct", "tag": "direct"}}, "route": map[string]any{"final": "direct"}}
 	b, e := json.Marshal(config)
@@ -87,6 +97,7 @@ func newFixture(t *testing.T, method string) *fixture {
 	f.command(fmt.Sprintf("ss://%s:synthetic-upstream-password@127.0.0.1:%d#controlled", method, f.upstream), 0, "profile", "import", "--stdin")
 	f.command("", 0, "profile", "select", "controlled")
 	f.command("", 0, "doctor")
+	f.command("", 0, "core", "verify")
 	return f
 }
 func (f *fixture) args(args ...string) []string {
@@ -140,7 +151,7 @@ type running struct {
 
 func (f *fixture) start(port uint16, args ...string) *running {
 	f.t.Helper()
-	args = append([]string{"run", "--profile", "controlled", "--mode", "proxy", "--listen-port", strconv.Itoa(int(port))}, args...)
+	args = append([]string{"run", "--mode", "proxy", "--listen-port", strconv.Itoa(int(port))}, args...)
 	r := &running{cmd: exec.Command(f.bin, f.args(args...)...), done: make(chan error, 1)}
 	r.cmd.Stdout = &r.out
 	r.cmd.Stderr = io.Discard

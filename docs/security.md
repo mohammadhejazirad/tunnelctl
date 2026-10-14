@@ -32,10 +32,13 @@ Filesystems with weak modes/locking or hostile path ancestors are not certified.
 
 The core is pinned by version and executable SHA-256. Descriptor-based execution
 protects against pathname replacement, not same-UID in-place modification. The
-official artifact digest and download were obtained through upstream HTTPS; a
+proxy rejects set-ID or file-capability executables; it never needs an elevated
+core or persistent capabilities. Unknown capability inspection errors fail closed.
+The official artifact digest and download were obtained through upstream HTTPS; a
 checksum from the same origin is integrity evidence, not independent authenticity
-or a supply-chain audit. Distribution signing/provenance and license review are
-pending. Configs are unlinked before validation/run and close on normal cleanup or
+or a supply-chain audit. CI requests release provenance; local dry-runs have no
+attestation. Archives include dependency license texts and do not bundle the core.
+Configs are unlinked before validation/run and close on normal cleanup or
 process death. Memory, swap and open procfs descriptors are not encrypted/zeroized.
 
 Session locks serialize one runtime root; separate roots may host independent
@@ -47,3 +50,13 @@ errors are explicit (code 7); unexpected runtime file types are left for inspect
 This implementation has not had an independent security audit. Power loss,
 filesystem faults at every transaction boundary, multiple local users, arbitrary
 hostile IPC clients and packet-level IPv6/DNS leak scenarios are not certified.
+
+Subscription URLs/HTTP validators are private schema-2 data, never public output.
+Preview tokens use HMAC with a private random per-source key, not public plaintext
+hashes of password-bearing feeds. Key and validators never enter public metadata.
+HTTPS fetch enforces bounds, certificate verification, origin-limited redirects
+and literal-address dialing after validating every DNS answer. Private CIDRs are
+explicit exceptions, not a TLS bypass. See subscriptions.md for transaction and
+durability boundaries. State logs contain only validated state names, timestamps
+and session IDs, not core output or traffic. The narrow repository hygiene scanner
+does not replace a complete secret scan or human review.

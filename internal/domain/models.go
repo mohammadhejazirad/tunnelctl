@@ -12,8 +12,8 @@ import (
 	"unicode/utf8"
 )
 
-const SchemaVersion = 1
-const AppVersion = "0.1.0"
+const SchemaVersion = 2
+const OutputSchemaVersion = 1
 
 type Error struct {
 	Code        int    `json:"code"`
@@ -26,14 +26,16 @@ func Fail(code int, message, remediation string) error { return &Error{code, mes
 
 // Profile is internal, secret-bearing data. Never serialize it in public output.
 type Profile struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Protocol  string    `json:"protocol"`
-	Host      string    `json:"host"`
-	Port      uint16    `json:"port"`
-	Method    string    `json:"method"`
-	Password  string    `json:"password"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Protocol       string    `json:"protocol"`
+	Host           string    `json:"host"`
+	Port           uint16    `json:"port"`
+	Method         string    `json:"method"`
+	Password       string    `json:"password"`
+	CreatedAt      time.Time `json:"created_at"`
+	SubscriptionID string    `json:"subscription_id,omitempty"`
+	UserNamed      bool      `json:"user_named,omitempty"`
 }
 type PublicProfile struct {
 	ID          string `json:"id"`
@@ -51,9 +53,11 @@ func (p Profile) Public(selected bool) PublicProfile {
 }
 
 type Settings struct {
-	SchemaVersion int       `json:"schema_version"`
-	Selected      string    `json:"selected"`
-	Profiles      []Profile `json:"profiles"`
+	SchemaVersion int            `json:"schema_version"`
+	Selected      string         `json:"selected"`
+	Profiles      []Profile      `json:"profiles"`
+	Revision      uint64         `json:"revision,omitempty"`
+	Subscriptions []Subscription `json:"subscriptions,omitempty"`
 }
 type Session struct {
 	ID               string     `json:"id,omitempty"`

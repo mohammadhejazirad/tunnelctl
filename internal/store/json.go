@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"unicode/utf8"
 )
 
 // DecodeStrict rejects duplicate structural fields, trailing values, excessive
@@ -16,6 +17,9 @@ func DecodeStrict(r io.Reader, limit int, out any) error {
 	}
 	if len(b) > limit {
 		return errors.New("JSON size limit exceeded")
+	}
+	if !utf8.Valid(b) {
+		return errors.New("invalid JSON UTF-8")
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	if e = consumeJSON(d, 0); e != nil {
