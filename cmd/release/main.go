@@ -351,6 +351,9 @@ func copyPublicTree(from, to string) error {
 		"examples": {"shadowsocks.txt", "proxy-auth.json"},
 		"docs":     {"architecture.md", "cli.md", "compatibility.md", "core-versions.md", "execution-checklist.md", "install.md", "recovery.md", "releasing.md", "release-notes-0.2.0.md", "roadmap.md", "security.md", "subscriptions.md", "testing.md", "versioning.md", "tui.md", "private-testing.md", "decisions/0001-storage.md", "decisions/0002-privileges.md", "decisions/0003-route-ownership.md"},
 	}
+	if from == "docs" {
+		allowed["docs"] = append(allowed["docs"], "storage.md")
+	}
 	names, ok := allowed[from]
 	if !ok {
 		return fmt.Errorf("unknown public release tree")

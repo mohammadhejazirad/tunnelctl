@@ -7,6 +7,10 @@ exec, automatic keyboard main menu, hidden imports, connection settings,
 cancellable subscription forms, confirmed-session-bound stop and explicit probes,
 private state events and completion. Packaging uses explicit public file lists;
 development private-test tooling and private inputs/reports are never shipped.
+Schema 3 persists complete supported connection data, subscription ownership,
+user tags/favorites and shared CLI/TUI defaults. Multifield Save is atomic and
+revision-checked; saving never reconnects. Schema-1/2 upgrades preserve exact private
+backups. Read docs/storage.md before backup, reset, downgrade or complete removal.
 See CHANGELOG.md and
 docs/testing.md for actual evidence and limits.
 

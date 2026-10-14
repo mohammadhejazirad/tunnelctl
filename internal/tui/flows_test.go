@@ -105,8 +105,10 @@ func TestMenuHiddenImportProfileFlowsAndSettings(t *testing.T) {
 	m.page = settingsPage
 	m.cursor = 1
 	m, _ = key(m, "enter")
-	m.form.fields[0].value = "10m"
-	m, _ = key(m, "enter")
+	m.form.fields[1].value = "10m"
+	m.form.cursor = len(m.form.fields) - 1
+	m, cmd = key(m, "enter")
+	m = finish(t, m, cmd)
 	if m.duration != 10*time.Minute {
 		t.Fatal("duration not configured")
 	}

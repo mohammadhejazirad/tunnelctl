@@ -43,7 +43,9 @@ func (m model) View() tea.View {
 	}
 	if m.form != nil {
 		text(m.form.title)
-		for i, f := range m.form.fields {
+		start := max(0, m.form.cursor-budget+2)
+		for i := start; i < len(m.form.fields) && i < start+max(1, budget-1); i++ {
+			f := m.form.fields[i]
 			mark := "  "
 			if i == m.form.cursor {
 				mark = "> "
@@ -134,7 +136,8 @@ func (m model) View() tea.View {
 			text(fmt.Sprintf("%s / TCP / %s | Credentials: [REDACTED]", m.profile.Protocol, m.profile.Method))
 			text(fmt.Sprintf("Endpoint: %s:%d", m.profile.Host, m.profile.Port))
 			text("Capability: supported normalized profile; core/config check available below.")
-			options([]string{"Select (active session unchanged)", "Validate with approved core (no connection)", "Rename", "Remove inactive profile"})
+			text(fmt.Sprintf("Favorite: %t | Tags: %s", m.profile.Favorite, strings.Join(m.profile.Tags, ", ")))
+			options([]string{"Select (active session unchanged)", "Validate with approved core (no connection)", "Rename", "Remove inactive profile", "Edit tags/favorite"})
 		case sourceDetailsPage:
 			text("Subscription: " + m.source.Name + " | URL: [REDACTED]")
 			text(fmt.Sprintf("Profiles: %d | Revision: %d", m.source.Profiles, m.source.Revision))
@@ -161,8 +164,8 @@ func (m model) View() tea.View {
 			}
 			options([]string{"Choose profile: " + name, fmt.Sprintf("Loopback port: %d", m.listenPort()), "Duration: " + durationLabel(m.duration), "Listener authentication: " + auth, "Connect (confirm)", "Stop (confirm)", "Probe destination: " + probe, "Test current connection (confirm)"})
 		case settingsPage:
-			text("Settings apply only to new sessions in this menu; not persisted.")
-			text("Core path/data directory come from CLI options. No global network settings.")
+			text("Persistent defaults shared with CLI. Enter opens one Save/discard form.")
+			text("Listener/core changes need explicit reconnect. No global network settings.")
 			options([]string{fmt.Sprintf("Loopback port: %d", m.listenPort()), "Duration: " + durationLabel(m.duration), "Private listener authentication file", "Explicit HTTPS probe destination"})
 		case logsPage:
 			text("Logs: bounded state events, not raw core output.")

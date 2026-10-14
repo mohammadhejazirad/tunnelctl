@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased durable-storage increment
+
+- Schema 3: persistent CLI/TUI defaults, profile tags/favorites and exact protected
+  schema-1/2 backups; newer/corrupt data never resets silently.
+- Atomic multifield Save/discard with stale-form detection, settings/paths commands,
+  explicit per-run overrides and no implicit active-session changes.
+- Separate-process concurrent writers, SIGKILL atomic-boundary recovery, actual
+  failed writes, restart/CWD and executable schema-2 upgrade acceptance tests.
+- Documented backup, recovery, settings reset and explicit complete data removal.
+
 ## Unreleased menu/private-testing increment
 
 - Automatic TTY main menu, hidden/file imports, profile details/search/CRUD and

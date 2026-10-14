@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 const OutputSchemaVersion = 1
 
 type Error struct {
@@ -36,20 +36,24 @@ type Profile struct {
 	CreatedAt      time.Time `json:"created_at"`
 	SubscriptionID string    `json:"subscription_id,omitempty"`
 	UserNamed      bool      `json:"user_named,omitempty"`
+	Tags           []string  `json:"tags,omitempty"`
+	Favorite       bool      `json:"favorite,omitempty"`
 }
 type PublicProfile struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Protocol    string `json:"protocol"`
-	Host        string `json:"host"`
-	Port        uint16 `json:"port"`
-	Method      string `json:"method"`
-	Credentials string `json:"credentials"`
-	Selected    bool   `json:"selected"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Protocol    string   `json:"protocol"`
+	Host        string   `json:"host"`
+	Port        uint16   `json:"port"`
+	Method      string   `json:"method"`
+	Credentials string   `json:"credentials"`
+	Selected    bool     `json:"selected"`
+	Tags        []string `json:"tags,omitempty"`
+	Favorite    bool     `json:"favorite"`
 }
 
 func (p Profile) Public(selected bool) PublicProfile {
-	return PublicProfile{p.ID, SafeName(p.Name), p.Protocol, p.Host, p.Port, p.Method, "[REDACTED]", selected}
+	return PublicProfile{ID: p.ID, Name: SafeName(p.Name), Protocol: p.Protocol, Host: p.Host, Port: p.Port, Method: p.Method, Credentials: "[REDACTED]", Selected: selected, Tags: append([]string(nil), p.Tags...), Favorite: p.Favorite}
 }
 
 type Settings struct {
@@ -58,6 +62,7 @@ type Settings struct {
 	Profiles      []Profile      `json:"profiles"`
 	Revision      uint64         `json:"revision,omitempty"`
 	Subscriptions []Subscription `json:"subscriptions,omitempty"`
+	Preferences   Preferences    `json:"preferences"`
 }
 type Session struct {
 	ID               string     `json:"id,omitempty"`

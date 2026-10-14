@@ -1,5 +1,37 @@
 # Product and release execution checklist
 
+## Durable user data increment — 2026-10-15
+
+- [x] Inspect full specification, file transactions, CLI/TUI and migration boundaries.
+- [x] Extend authoritative snapshot to schema 3: preferences, tags and favorites.
+- [x] Share durable settings APIs, CLI defaults and transactional TUI Save/discard.
+- [x] Verify restart/CWD, concurrent processes, killed writers and failed writes.
+- [x] Verify backup migration, corrupt/newer refusal, privacy and no auto-connect.
+- [x] Run public tests, real-core acceptance, vet, race and packaging checks.
+- [x] Document locations, security, recovery, upgrade and explicit deletion.
+
+No private sample input is read in this increment. Native macOS/Windows private
+storage/ACL and lifecycle remain unsupported; no host networking is modified.
+
+Evidence: public suite/vet/formatting/module verification/hygiene/actionlint passed.
+Controlled real-core suite passed (14.241s); full race with schema-2 reference
+passed (190.718s). Five persistence-candidate archives passed checksums, required
+storage docs, target metadata and populated installation/update/uninstall retention
+(0.392s). Final metadata/recovery refinements passed targeted race; an additional
+complete race with verified schema-1/2 references and the synthetic development
+harness passed (integration 208.275s). Final persistence-delivery archives passed
+all five-target installation/checksum/metadata gates again (0.382s). The initially misidentified schema-1 test reference
+is recorded in testing.md, not counted as successful evidence. No real private
+sample was opened. Data remains private plaintext, not encrypted. Native other-OS,
+multi-UID accounts, physical reboot/power loss and a real full disk are not certified.
+
+Final delivery is the new ignored `dist/persistence-verified/` dry-run directory.
+All five archives passed strengthened binary/manifest schema agreement and
+installation lifecycle tests (0.361s); extracted Linux binary passed complete
+controlled core/PTY/persistence/upgrade/harness acceptance (16.486s). Final release
+checks passed targeted race; vet, formatting, hygiene and whitespace gates passed.
+Existing dry-run directories were retained, not overwritten. No public tag/release.
+
 ## Private testing and menu increment — 2026-10-14
 
 - [x] Read the complete build specification and inspect existing shared services/CI.

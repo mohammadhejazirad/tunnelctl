@@ -28,5 +28,5 @@ func enterTUI(cmd *cobra.Command, o *options, service func() (*app.Service, erro
 	if e != nil {
 		return e
 	}
-	return tui.Run(cmd.Context(), s, in, out, !o.noColor && !o.plain)
+	return tui.Run(cmd.Context(), s, in, out, tui.Options{ColorAllowed: !o.noColor && !o.plain, CoreOverride: cmd.Root().PersistentFlags().Changed("core"), TimeoutOverride: cmd.Root().PersistentFlags().Changed("timeout")})
 }

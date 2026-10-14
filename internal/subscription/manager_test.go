@@ -103,6 +103,8 @@ func TestHTTPSAtomicUpdatesAndIdentity(t *testing.T) {
 		v.Selected = alpha.ID
 		v.Profiles[0].Name = "user label"
 		v.Profiles[0].UserNamed = true
+		v.Profiles[0].Tags = []string{"personal"}
+		v.Profiles[0].Favorite = true
 		return nil
 	}); e != nil {
 		t.Fatal(e)
@@ -129,6 +131,9 @@ func TestHTTPSAtomicUpdatesAndIdentity(t *testing.T) {
 	v, _ = m.Store.Load()
 	if len(v.Profiles) != 1 || v.Profiles[0].ID != alpha.ID || v.Profiles[0].Name != "user label" || v.Selected != alpha.ID {
 		t.Fatal("stable identity/name/selection lost")
+	}
+	if !v.Profiles[0].Favorite || len(v.Profiles[0].Tags) != 1 || v.Profiles[0].Tags[0] != "personal" {
+		t.Fatal("subscription refresh lost user metadata")
 	}
 	mu.Lock()
 	etag = "\"three\""

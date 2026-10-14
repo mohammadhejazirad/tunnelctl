@@ -12,6 +12,7 @@ No download badge implies assets have already been published.
 - Real loopback HTTP/SOCKS5 proxy, foreground or explicit detached supervisor.
 - Duration, owned-process stop, private status and bounded state events.
 - Private link import; profile selection, rename, removal and redacted JSON.
+- Durable shared CLI/TUI preferences, tags/favorites and protected migration backups.
 - Transactional HTTPS subscriptions: preview, last-good preservation, stable IDs,
   conditional requests and explicit deletion approval.
 - Isolated child `exec`, shell completion and Bubble Tea/Lip Gloss keyboard TUI.
@@ -193,7 +194,9 @@ opens Help. Profiles: `i` hidden link import, `f` private file, `/` search,
 Enter details/select/config-check, `r` rename, `d` confirmed removal.
 Subscriptions: `a` hidden add, `p/u` preview/update, `r` rename, `d` remove/retain.
 Connect/Settings configure port, duration, authentication and an optional explicit
-HTTPS probe; settings are menu-local. All menu starts are truly **detached**.
+HTTPS probe. One draft and explicit **Save** persist all settings for CLI and TUI;
+Esc discards it. Defaults never reconnect or modify an active session. All menu
+starts are truly **detached**.
 `x` confirms session-bound stop; `q` checks lifetime and offers leave running,
 disconnect-and-exit or return. Esc/Ctrl+C cancels in-flight work without freezing
 the UI; exit waits for cleanup. Read [menu guide](docs/tui.md) for all flows.
@@ -230,9 +233,29 @@ their specific files. See [installation lifecycle](docs/install.md).
 
 Linux uses XDG config/state/cache/runtime paths; runtime fallback is under state.
 `--data-dir /private/trial` overrides all roots; pass it consistently. Directories
-are `0700`, secret files `0600`. Schema-2 `profiles.json` stores profiles and source
-URLs atomically. This is permission-protected plaintext, not encryption at rest.
-See [versioning/migration](docs/versioning.md).
+are `0700`, secret files `0600`. Schema-3 `profiles.json` stores complete supported
+connection parameters/credentials, source URLs/ownership, names/tags/favorites,
+selection and application preferences atomically. This is permission-protected
+plaintext, not encryption at rest. `init` never resets existing user data.
+
+```sh
+tunnelctl paths --json
+tunnelctl settings show --json
+tunnelctl settings set listener-port 2081
+tunnelctl settings set duration 10m
+tunnelctl settings set color false
+tunnelctl profile metadata PROFILE_ID --tags work,preferred --favorite
+# Resets only preferences; retains profiles, subscriptions and selection:
+tunnelctl settings reset --yes
+```
+
+Explicit run/start flags override saved defaults for that invocation only. Loading
+saved mode/selection never auto-connects. Schema 1/2 migrate on a successful write
+only after an exact private backup; corrupt/newer files are refused without reset.
+Ordinary archive upgrade/uninstall preserves data outside the installation.
+See [storage paths, Save/concurrency, backup, migration and explicit full removal](docs/storage.md)
+and [versioning](docs/versioning.md). Native macOS/Windows storage/ACL is still
+unsupported; compile-only assets do not imply persistence support.
 
 - Port conflict: choose another port, do not kill an unknown process.
 - Permission refusal: use owned private files on a suitable filesystem; do not

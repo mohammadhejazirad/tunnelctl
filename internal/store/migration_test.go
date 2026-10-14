@@ -32,7 +32,7 @@ func TestSchemaOneMigrationAndDowngradeBoundary(t *testing.T) {
 		t.Fatal(e)
 	}
 	v, e := s.Load()
-	if e != nil || v.SchemaVersion != 2 {
+	if e != nil || v.SchemaVersion != domain.SchemaVersion {
 		t.Fatal("schema migration failed", e)
 	}
 	backup := filepath.Join(s.Paths.Config, "profiles.schema1.backup.json")

@@ -1,7 +1,8 @@
 # CLI contract, schema 1
 
 Implemented commands: help, version, init, profile import/list/show/select/rename/
-remove/check; subscription add/list/show/rename/remove/update; run, start, exec, status, probe,
+remove/check/metadata; settings show/set/reset; paths;
+subscription add/list/show/rename/remove/update; run, start, exec, status, probe,
 stop, logs, doctor, core list/verify, tui and completion. Profile identifiers are full random IDs or unique
 sanitized names; duplicate names require IDs. Duplicate connection identities are
 rejected, and the first import becomes selected. Imported state remains distinct
@@ -15,8 +16,11 @@ Global arguments: `--data-dir`, `--core`, `--json`, `--timeout`, `--plain`,
 `--no-color`, `--non-interactive`. CLI output is always plain; styling flags affect
 TUI. NO_COLOR disables color; TERM=dumb, nonterminal input/output, JSON and
 non-interactive refuse TUI. `--config` and `--verbose` are
-not implemented. Core path defaults to TUNNELCTL_CORE or /usr/local/bin/sing-box
+not implemented. Core path defaults to persisted preferences, then TUNNELCTL_CORE or /usr/local/bin/sing-box
 and must be absolute. Timeout is greater than zero and at most two minutes.
+Persisted defaults apply to run/start unless their flags are explicitly provided;
+core/timeout/style flags are invocation-only. Save never reconnects. See storage.md
+for settings keys, atomic forms, reset, metadata replacement and conflict behavior.
 
 Run flags: `--profile`, `--mode proxy`, `--duration 10m`, `--listen-port 2080`,
 `--proxy-auth-file`. Negative durations are invalid; zero has no deadline. Only

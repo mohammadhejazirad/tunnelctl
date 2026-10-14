@@ -24,9 +24,12 @@ Secret config files normally have no pathname while running. Interrupted profile
 updates may leave 0600 `.atomic-*` staging files inside the private config directory.
 They are ignored. Keep a private backup of profiles.json before manual repair;
 restore only a known good schema compatible with your binary. Schema-1 migration
-preserves profiles.schema1.backup.json; schema-2 backups include subscription URLs.
+preserves profiles.schema1.backup.json; schema-2 migration preserves
+profiles.schema2.backup.json. Backups include credentials and subscription URLs.
 A staging file is not automatically valid. No repair overwrites malformed data.
 See versioning.md before attempting a downgrade.
+See storage.md for protected backup, corrupt/newer-schema refusal, defaults reset
+versus explicit data deletion, and recovery after an interrupted atomic write.
 
 There are no routes, DNS settings, firewall rules, services or shell configuration
 to roll back in this proxy release. Do not reset them as a proxy recovery step.

@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -106,7 +107,14 @@ func TestTUIMenuConnectDetachedExitAndConfirmedStop(t *testing.T) {
 	input.Write([]byte("s\x1b[B\r"))
 	time.Sleep(100 * time.Millisecond)
 	input.Write([]byte("\x15" + strconv.Itoa(int(port)) + "\r"))
-	time.Sleep(100 * time.Millisecond)
+	// The shared settings draft requires an explicit Save after all seven fields.
+	input.Write([]byte(strings.Repeat("\r", 7)))
+	waitFor(t, func() bool { v, e := s.Settings(); return e == nil && v.Preferences.ListenerPort == port }, "durable menu Save")
+	shown := f.command("", 0, "settings", "show")
+	var saved app.PreferencesSnapshot
+	if e = json.Unmarshal(shown.Data, &saved); e != nil || saved.Preferences.ListenerPort != port {
+		t.Fatal("CLI cannot observe menu Save")
+	}
 	input.Write([]byte("\x1b[B\x1b[B\x1b[B\r"))
 	time.Sleep(150 * time.Millisecond)
 	input.Write([]byte("\r"))

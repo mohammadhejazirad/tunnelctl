@@ -1,7 +1,7 @@
 # Compatibility status
 
 Machine-readable records are in ../compatibility.json. Source 0.2.0-dev, storage
-schema 2, JSON envelope schema 1, Go 1.27.2, Cobra 1.10.1, Bubble Tea 2.1.0,
+schema 3, JSON envelope schema 1, Go 1.27.2, Cobra 1.10.1, Bubble Tea 2.1.0,
 Lip Gloss 2.0.6 and sing-box 1.14.3. All modules/checksums are locked. Xray remains
 unsupported. Linux proxy, subscriptions, exec/detached and TUI have local evidence.
 

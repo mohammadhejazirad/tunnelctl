@@ -41,7 +41,7 @@ func TestUpgradeFromBaselineAndDowngradeRefusal(t *testing.T) {
 		t.Fatal(e)
 	}
 	var next domain.Settings
-	if e = json.Unmarshal(upgraded, &next); e != nil || next.SchemaVersion != 2 || next.Selected != old.Selected || next.Profiles[0].ID != old.Profiles[0].ID {
+	if e = json.Unmarshal(upgraded, &next); e != nil || next.SchemaVersion != domain.SchemaVersion || next.Selected != old.Selected || next.Profiles[0].ID != old.Profiles[0].ID {
 		t.Fatal("upgrade lost identity/selection")
 	}
 	backup, e := os.ReadFile(filepath.Join(current.root, "config", "profiles.schema1.backup.json"))

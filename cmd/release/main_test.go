@@ -64,7 +64,7 @@ func TestArchivesAndNoOverwrite(t *testing.T) {
 }
 
 func TestPrivatePathsAndSymlinksNeverPackaged(t *testing.T) {
-	for _, name := range []string{"links_and_subs.txt", "report.private.json", "report.private.log", "private-results/report.txt"} {
+	for _, name := range []string{"links_and_subs.txt", "profiles.json", "profiles.schema2.backup.json", "session.json", "events.json", "control.sock", "report.private.json", "report.private.log", "private-results/report.txt"} {
 		root := t.TempDir()
 		source := filepath.Join(root, "stage")
 		os.MkdirAll(filepath.Join(source, filepath.Dir(name)), 0700)

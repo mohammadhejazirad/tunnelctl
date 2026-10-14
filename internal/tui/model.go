@@ -64,6 +64,9 @@ type model struct {
 	probeSession                     string
 	connectFailed, probeFailed       bool
 	operations                       *sync.WaitGroup
+	colorAllowed                     bool
+	coreOverride                     bool
+	timeoutOverride                  bool
 }
 type loaded struct {
 	profiles []domain.PublicProfile
@@ -71,6 +74,7 @@ type loaded struct {
 	events   []session.Event
 	state    domain.Session
 	err      error
+	settings app.PreferencesSnapshot
 }
 type tick struct{}
 type completed struct {
@@ -101,7 +105,11 @@ func (m model) load() tea.Msg {
 		return loaded{err: e}
 	}
 	events, e := m.service.Logs()
-	return loaded{p, s, events, state, e}
+	if e != nil {
+		return loaded{err: e}
+	}
+	settings, e := m.service.Settings()
+	return loaded{profiles: p, sources: s, events: events, state: state, err: e, settings: settings}
 }
 func refresh() tea.Cmd        { return tea.Tick(time.Second, func(time.Time) tea.Msg { return tick{} }) }
 func (m model) Init() tea.Cmd { return tea.Batch(m.load, refresh()) }
@@ -186,7 +194,7 @@ func (m *model) count() int {
 	case settingsPage:
 		return 4
 	case detailsPage:
-		return 4
+		return 5
 	case sourceDetailsPage:
 		return 3
 	}
@@ -207,6 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sources = msg.sources
 			m.events = msg.events
 			m.state = msg.state
+			m.applySettings(msg.settings)
 			for _, p := range m.profiles {
 				if p.ID == m.profile.ID {
 					m.profile = p
@@ -493,6 +502,15 @@ func (m *model) enter() tea.Cmd {
 			m.renameForm()
 		case 3:
 			m.removeConfirmation()
+		case 4:
+			p, revision, e := m.service.ProfileSettings(m.profile.ID)
+			if e != nil {
+				m.message = safeError(e)
+				return nil
+			}
+			m.openForm("metadata", "Profile metadata; Save both fields together", field{"Tags (comma separated)", strings.Join(p.Tags, ","), false, 2048}, field{"Favorite (true/false)", fmt.Sprint(p.Favorite), false, 5}, field{"Save", "", false, 0})
+			m.form.key = p.ID
+			m.form.revision = revision
 		}
 	case sourceDetailsPage:
 		switch m.cursor {
@@ -589,11 +607,31 @@ func durationLabel(d time.Duration) string {
 	}
 	return d.String()
 }
-func Run(ctx context.Context, s *app.Service, in io.Reader, out io.Writer, color bool) error {
+func (m *model) applySettings(v app.PreferencesSnapshot) {
+	m.port = v.Preferences.ListenerPort
+	m.duration, _ = time.ParseDuration(v.Preferences.Duration)
+	m.authFile = v.Preferences.AuthFile
+	m.probeTarget = v.Preferences.ProbeTarget
+	m.color = m.colorAllowed && v.Preferences.Color && os.Getenv("NO_COLOR") == ""
+	m.service = m.service.WithPreferences(v.Preferences, m.coreOverride, m.timeoutOverride)
+}
+
+type Options struct {
+	ColorAllowed    bool
+	CoreOverride    bool
+	TimeoutOverride bool
+}
+
+func Run(ctx context.Context, s *app.Service, in io.Reader, out io.Writer, options Options) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	operations := &sync.WaitGroup{}
-	m := model{service: s, ctx: ctx, operations: operations, page: menuPage, color: color && os.Getenv("NO_COLOR") == "", state: domain.Session{State: "idle"}, port: 2080}
+	v, e := s.Settings()
+	if e != nil {
+		return e
+	}
+	m := model{service: s, ctx: ctx, operations: operations, page: menuPage, colorAllowed: options.ColorAllowed, coreOverride: options.CoreOverride, timeoutOverride: options.TimeoutOverride, state: domain.Session{State: "idle"}}
+	m.applySettings(v)
 	final, e := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
 	wasCanceled := ctx.Err() != nil
 	cancel()

@@ -174,6 +174,8 @@ func plan(v domain.Settings, s domain.Subscription, incoming []domain.Profile) (
 			p.CreatedAt = prior.CreatedAt
 			p.UserNamed = prior.UserNamed
 			p.Name = prior.Name
+			p.Tags = append([]string(nil), prior.Tags...)
+			p.Favorite = prior.Favorite
 			delete(old, p.Identity())
 			d.Unchanged++
 		} else {

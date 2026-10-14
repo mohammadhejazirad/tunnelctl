@@ -51,9 +51,12 @@ conflict and is never converted into permission to signal a stored PID.
 
 Ordinary filesystem atomicity and flock are assumed on a local Linux filesystem.
 Network filesystems and filesystems lacking Unix modes are unsupported. Storage
-schema 2 has a backup-preserving schema-1 migration; unknown newer schemas fail
+schema 3 has backup-preserving schema-1/2 migrations; unknown newer schemas fail
 without overwriting content. Subscription source/profile updates use one file,
 strict bounded parsing, per-source locks and revision CAS. See subscriptions.md.
+Preferences and user metadata use this same snapshot/lock. Multifield TUI drafts
+commit with revision CAS through shared app services; see storage.md. Runtime
+status, cache and future privileged journals are not stored as connection truth.
 The `--data-dir` override replaces the proposed generic `--config` in Phase 1;
 it selects all four private directory roots consistently rather than introducing
 an unimplemented application-config file format.

@@ -5,8 +5,8 @@ import (
 	"context"
 	"strconv"
 	"strings"
-	"time"
 	"tunnelctl/internal/app"
+	"tunnelctl/internal/domain"
 )
 
 type field struct {
@@ -18,6 +18,8 @@ type form struct {
 	action, title, key string
 	fields             []field
 	cursor             int
+	revision           uint64
+	draft              domain.Preferences
 }
 
 func (f *form) append(text string) {
@@ -34,15 +36,25 @@ func (m *model) addSourceForm() {
 	m.openForm("add-source", "Add source; no download until manual preview", field{"Name", "", false, 256}, field{"HTTPS URL", "", true, 16384}, field{"Private CIDRs (optional, comma separated)", "", false, 512}, field{"Private CA file (optional)", "", false, 4096})
 }
 func (m *model) settingForm(setting string) {
-	switch setting {
-	case "port":
-		m.openForm("port", "Session-local listener port", field{"Port", strconv.Itoa(int(m.listenPort())), false, 5})
-	case "duration":
-		m.openForm("duration", "Session-local duration (blank or 0 = no deadline)", field{"Duration", m.duration.String(), false, 32})
-	case "auth":
-		m.openForm("auth", "Session-local private listener authentication file", field{"File (blank = unauthenticated loopback)", m.authFile, false, 4096})
-	case "probe":
-		m.openForm("probe", "Explicit HTTPS probe target; no automatic request", field{"HTTPS destination (no credentials/query)", m.probeTarget, false, 4096})
+	v, e := m.service.Settings()
+	if e != nil {
+		m.message = safeError(e)
+		return
+	}
+	p := v.Preferences
+	m.openForm("settings", "Persistent defaults; Save commits all fields; active session unchanged",
+		field{"Loopback port", strconv.Itoa(int(p.ListenerPort)), false, 5},
+		field{"Duration (0s = no deadline)", p.Duration, false, 32},
+		field{"Private authentication file (absolute)", p.AuthFile, false, 4096},
+		field{"Explicit HTTPS probe destination", p.ProbeTarget, true, 4096},
+		field{"Core path (absolute; blank = environment/default)", p.CorePath, false, 4096},
+		field{"Core timeout", p.Timeout, false, 32},
+		field{"Color (true/false)", strconv.FormatBool(p.Color), false, 5},
+		field{"Save", "", false, 0})
+	m.form.revision = v.Revision
+	m.form.draft = p
+	if i, ok := map[string]int{"port": 0, "duration": 1, "auth": 2, "probe": 3}[setting]; ok {
+		m.form.cursor = i
 	}
 }
 func (m *model) renameForm() {
@@ -135,32 +147,50 @@ func (m *model) submit() tea.Cmd {
 	}
 	m.form = nil // Never retain secrets in display state after submitting.
 	switch f.action {
-	case "port":
-		n, e := strconv.ParseUint(values[0], 10, 16)
-		if e != nil || n < 1024 {
-			m.message = "Error: Port must be 1024–65535."
-		} else {
-			m.port = uint16(n)
-			m.message = "Success: Session-local port updated; an active session is unchanged."
-		}
-	case "duration":
-		var d time.Duration
-		var e error
+	case "metadata":
+		var tags []string
 		if strings.TrimSpace(values[0]) != "" {
-			d, e = time.ParseDuration(values[0])
+			for _, tag := range strings.Split(values[0], ",") {
+				tags = append(tags, strings.TrimSpace(tag))
+			}
 		}
-		if e != nil || d < 0 {
-			m.message = "Error: Use a nonnegative duration such as 10m."
-		} else {
-			m.duration = d
-			m.message = "Success: New-session duration updated; active deadline is unchanged."
+		favorite, e := strconv.ParseBool(values[1])
+		if e != nil {
+			m.message = "Error: Favorite must be true or false. Nothing saved."
+			return nil
 		}
-	case "auth":
-		m.authFile = values[0]
-		m.message = "Success: Authentication path updated; validated on next start/probe."
-	case "probe":
-		m.probeTarget = values[0]
-		m.message = "Success: Probe destination updated; no request sent."
+		s := m.service
+		return m.begin("Saving profile metadata...", func(context.Context) completed {
+			_, e := s.ProfileMetadata(f.key, tags, favorite, &f.revision)
+			return completed{message: "Profile metadata saved.", err: e}
+		})
+	case "settings":
+		n, e := strconv.ParseUint(values[0], 10, 16)
+		color, ce := strconv.ParseBool(values[6])
+		if e != nil || ce != nil {
+			m.message = "Error: Invalid port or color value. Nothing saved."
+			return nil
+		}
+		p := f.draft
+		p.ListenerPort = uint16(n)
+		p.Duration = values[1]
+		p.AuthFile = values[2]
+		p.ProbeTarget = values[3]
+		p.CorePath = values[4]
+		p.Timeout = values[5]
+		p.Color = color
+		if e = p.Validate(); e != nil {
+			m.message = safeError(e)
+			return nil
+		}
+		s := m.service
+		return m.begin("Saving private settings...", func(ctx context.Context) completed {
+			if ctx.Err() != nil {
+				return completed{err: ctx.Err()}
+			}
+			_, e := s.SaveSettings(f.revision, p)
+			return completed{message: "Settings saved durably. Reconnect explicitly to apply listener/core/deadline changes; no request sent.", err: e}
+		})
 	case "import-link":
 		return m.begin("Parsing and storing hidden input...", func(context.Context) completed {
 			_, e := m.service.Import(strings.NewReader(values[0]))

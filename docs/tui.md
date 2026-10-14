@@ -54,8 +54,13 @@ Logs never display URLs, validators, credentials, response bodies or core output
 
 Only Proxy is selectable. Choose/select a profile in Profiles, then configure an
 unprivileged loopback port, optional duration (e.g. 10m) and optional private
-listener authentication file. Settings are **menu-local**, not saved; an active
-listener/deadline is unchanged. The core/storage paths come from CLI flags.
+listener authentication file. Settings opens a persistent multifield draft shared
+with CLI: port, duration, auth path, hidden explicit probe target, core path, timeout
+and color. Tab/arrows move, Enter advances to Save, Enter on Save commits all;
+Esc discards all. A stale snapshot fails with a reload remedy. Success appears
+only after durable commit. An active listener/core/deadline is unchanged; reconnect
+explicitly. CLI core/timeout/style overrides remain invocation-only. See storage.md.
+Profile details also offers atomic tags/favorite editing.
 
 Connect requires confirmation and starts the existing **detached** supervisor.
 Duration is enforced independently of the UI. No UI-owned foreground session is

@@ -30,6 +30,7 @@ type options struct {
 	noColor        bool
 	nonInteractive bool
 	timeout        time.Duration
+	command        string
 }
 
 func Execute(args []string, in io.Reader, out, diagnostics io.Writer) int {
@@ -80,7 +81,11 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(io.Discard)
-	root.PersistentPreRunE = func(*cobra.Command, []string) error { _, e := buildinfo.Current(); return e }
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		o.command = cmd.Name()
+		_, e := buildinfo.Current()
+		return e
+	}
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.PersistentFlags().StringVar(&o.root, "data-dir", "", "Private storage root override (0700)")
 	root.PersistentFlags().StringVar(&o.core, "core", app.DefaultCore(), "Absolute path to the approved sing-box executable")
@@ -93,7 +98,19 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 		if o.timeout <= 0 || o.timeout > 2*time.Minute {
 			return nil, domain.Fail(2, "Timeout must be greater than zero and at most two minutes.", "Pass --timeout 10s.")
 		}
-		return app.New(o.root, o.core, o.timeout)
+		s, e := app.New(o.root, o.core, o.timeout)
+		if e != nil {
+			return nil, e
+		}
+		// Recovery must not depend on a readable preferences snapshot.
+		if o.command == "stop" || o.command == "status" || o.command == "logs" {
+			return s, nil
+		}
+		v, e := s.Settings()
+		if e != nil {
+			return nil, e
+		}
+		return s.WithPreferences(v.Preferences, root.PersistentFlags().Changed("core"), root.PersistentFlags().Changed("timeout")), nil
 	}
 	write := func(v any) error {
 		if o.json {
@@ -160,6 +177,30 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	root.AddCommand(profile)
 	root.AddCommand(subscriptionCommand(service, write, in))
 	root.AddCommand(coreCommand(service, write))
+	root.AddCommand(settingsCommand(service, write))
+	root.AddCommand(&cobra.Command{Use: "paths", Short: "Show per-user config, state, cache and runtime paths without secrets", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+		s, e := app.New(o.root, o.core, o.timeout)
+		if e != nil {
+			return e
+		}
+		return write(s.Paths())
+	}})
+	var tags []string
+	var favorite bool
+	metadata := &cobra.Command{Use: "metadata PROFILE", Short: "Persist tags and favorite together (replaces both fields)", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		s, e := service()
+		if e != nil {
+			return e
+		}
+		v, e := s.ProfileMetadata(args[0], tags, favorite, nil)
+		if e != nil {
+			return e
+		}
+		return write(v)
+	}}
+	metadata.Flags().StringSliceVar(&tags, "tags", nil, "Comma-separated tags; replaces all tags")
+	metadata.Flags().BoolVar(&favorite, "favorite", false, "Mark favorite")
+	profile.AddCommand(metadata)
 	root.AddCommand(probeCommand(service, write))
 	profile.AddCommand(profileCheckCommand(service, write))
 	root.AddCommand(tuiCommand(o, service, in, out))
@@ -251,14 +292,18 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	var duration time.Duration
 	var port uint
 	run := &cobra.Command{Use: "run", Short: "Run a loopback proxy in the foreground; Ctrl+C stops it", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		s, e := service()
+		if e != nil {
+			return e
+		}
+		port, duration, authFile, mode, e = sessionDefaults(cmd, s, port, duration, authFile, mode)
+		if e != nil {
+			return e
+		}
 		if port < 1024 || port > 65535 {
 			return domain.Fail(2, "Listener port must be between 1024 and 65535.", "Choose an unprivileged --listen-port.")
 		}
 		l, e := app.AuthFile(authFile, core.Listener{Port: uint16(port)})
-		if e != nil {
-			return e
-		}
-		s, e := service()
 		if e != nil {
 			return e
 		}

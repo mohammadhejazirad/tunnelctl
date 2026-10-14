@@ -1,5 +1,49 @@
 # Actual test evidence — 2026-10-14
 
+## Durable-storage increment — 2026-10-15
+
+Public tests use synthetic fixtures and never read private samples. Store
+subprocesses check SIGKILL at create/file-sync/rename/directory-sync boundaries,
+RLIMIT_FSIZE write failure, 50 concurrent commits, XDG/CWD isolation, private
+migration backups and corrupt/newer refusal. CLI/model tests cover persistent
+settings and tags/favorites, draft discard, stale Save, permission failure,
+idempotent init/reset and no auto-connect. Controlled real-core integration passed
+in 14.241 seconds, including PTY Save -> CLI settings, stored defaults -> real proxy
+request, active-session isolation and actual schema-2 executable upgrade/downgrade
+refusal. Set TUNNELCTL_SCHEMA2_BIN for the optional old-executable test.
+This is not physical reboot/power-loss or native non-Linux certification.
+
+Initial complete race with the instrumented CLI and pinned core passed in
+190.718 seconds (schema-2 reference enabled). Native archive acceptance passed
+in 0.392 seconds for all five archives, including checksums/target metadata,
+required storage guide and populated preferences/source/profile retention across
+manual executable replacement/removal. The schema-1 reference was rebuilt from
+pinned public commit a783dc63ff37359bc6e05359887c5272d723daf9; its actual upgrade
+and old-decoder refusal passed separately with the final race client (11.612s).
+One later gate initially selected a schema-2 executable for the schema-1 test;
+that setup is invalid, not an application migration failure. The rebuilt schema-1
+reference is used for the final complete gate. Native multi-UID users, a real full
+filesystem, physical reboot/power loss and native macOS/Windows remain untested;
+synthetic XDG roots, UID checks and permission/size-limited writes are separate evidence.
+
+Final complete `go test -race -count=1 ./...` passed with the final race CLI,
+verified schema-1 and schema-2 references, pinned core and synthetic development
+harness (integration 208.275s). No historical upgrade test was skipped in that run.
+The harness's samples were synthetic, not the root private file. Final five-target
+persistence-delivery archives passed installation/checksum/metadata gates (0.382s).
+Code formatting, vet, module verification, hygiene and actionlint also passed.
+
+Final delivery: `dist/persistence-verified/`, local v0.2.0-rc.1 dry-run,
+development=true, no publication. All five archives passed checksum, member,
+target, version/storage-schema agreement and populated installation lifecycle gates
+(0.361s); the release checks also passed race separately. The extracted final Linux
+binary passed the complete controlled proxy/PTY/persistence/lifecycle suite with
+both historical upgrade references and the synthetic harness (16.486s). These
+post-package checks are recorded here after artifact creation; embedded offline
+guides already contain the earlier successful candidate evidence and full recovery
+instructions. No private input, snapshot, backup, session data or development tool
+is included in those archives.
+
 ## Menu/private-harness increment
 
 Public tests remain synthetic and independent of any real sample file. Added

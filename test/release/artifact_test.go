@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"tunnelctl/internal/domain"
 	"tunnelctl/internal/hygiene"
 )
 
@@ -118,19 +119,20 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 			modes[h.Name] = os.FileMode(h.Mode)
 		}
 	}
-	for _, name := range []string{"LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "compatibility.json", "SUPPORT.txt", "docs/recovery.md", "docs/tui.md", "docs/private-testing.md", "THIRD_PARTY_LICENSES/Go_LICENSE"} {
+	for _, name := range []string{"LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "compatibility.json", "SUPPORT.txt", "docs/recovery.md", "docs/tui.md", "docs/storage.md", "docs/private-testing.md", "THIRD_PARTY_LICENSES/Go_LICENSE"} {
 		if len(entries[name]) == 0 {
 			t.Fatal("required archive member missing", name)
 		}
 	}
 	var compatibility struct {
 		Application struct {
-			Version    string
-			ReleaseTag string `json:"release_tag"`
+			Version       string
+			ReleaseTag    string `json:"release_tag"`
+			StorageSchema int    `json:"storage_schema"`
 		}
 		Modules []any
 	}
-	if e := json.Unmarshal(entries["compatibility.json"], &compatibility); e != nil || compatibility.Application.Version != strings.TrimPrefix(tag, "v") || compatibility.Application.ReleaseTag != tag || len(compatibility.Modules) == 0 {
+	if e := json.Unmarshal(entries["compatibility.json"], &compatibility); e != nil || compatibility.Application.Version != strings.TrimPrefix(tag, "v") || compatibility.Application.ReleaseTag != tag || compatibility.Application.StorageSchema != domain.SchemaVersion || len(compatibility.Modules) == 0 {
 		t.Fatal("packaged compatibility/version mismatch")
 	}
 	binaryName := "tunnelctl"
@@ -177,9 +179,12 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 	}
 	var version struct {
 		OK   bool
-		Data struct{ Application, Tag string }
+		Data struct {
+			Application, Tag string
+			StorageSchema    int `json:"storage_schema"`
+		}
 	}
-	if e := json.Unmarshal(run("version", "--json"), &version); e != nil || !version.OK || version.Data.Tag != tag || version.Data.Application != strings.TrimPrefix(tag, "v") {
+	if e := json.Unmarshal(run("version", "--json"), &version); e != nil || !version.OK || version.Data.Tag != tag || version.Data.Application != strings.TrimPrefix(tag, "v") || version.Data.StorageSchema != domain.SchemaVersion {
 		t.Fatal("binary/tag mismatch")
 	}
 	run("--help")
@@ -192,6 +197,14 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 	if b, e := importCommand.CombinedOutput(); e != nil || bytes.Contains(b, []byte("synthetic-release-only")) {
 		t.Fatal("private installation import failed or leaked credentials")
 	}
+	run("--data-dir", dataDir, "settings", "set", "listener-port", "9081")
+	run("--data-dir", dataDir, "settings", "set", "color", "false")
+	run("--data-dir", dataDir, "profile", "metadata", "preserved-user-profile", "--tags", "preserved", "--favorite")
+	sourceCommand := exec.Command(installed, "--data-dir", dataDir, "--json", "subscription", "add", "--name", "preserved-source", "--url-stdin")
+	sourceCommand.Stdin = strings.NewReader("https://example.invalid/feed?token=synthetic-release-only")
+	if b, e := sourceCommand.CombinedOutput(); e != nil || bytes.Contains(b, []byte("synthetic-release-only")) {
+		t.Fatal("private source install test failed")
+	}
 	run("--data-dir", dataDir, "status", "--json")
 	profilePath := filepath.Join(dataDir, "config", "profiles.json")
 	before, e := os.ReadFile(profilePath)
@@ -203,6 +216,10 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 		t.Fatal(e)
 	}
 	run("version", "--json")
+	if b := run("--data-dir", dataDir, "settings", "show", "--json"); !bytes.Contains(b, []byte(`"listener_port":9081`)) {
+		t.Fatal("replacement lost preferences")
+	}
+	run("--data-dir", dataDir, "subscription", "list", "--json")
 	run("--data-dir", dataDir, "stop")
 	run("--data-dir", dataDir, "stop")
 	// Manual uninstall preserves user data; no service or host networking is installed.

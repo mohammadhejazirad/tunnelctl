@@ -14,6 +14,14 @@ func lifecycleCommands(o *options, service func() (*app.Service, error), write f
 	var duration time.Duration
 	var port uint
 	start := &cobra.Command{Use: "start", Short: "Start an explicit detached loopback proxy supervisor", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		s, e := service()
+		if e != nil {
+			return e
+		}
+		port, duration, authFile, mode, e = sessionDefaults(cmd, s, port, duration, authFile, mode)
+		if e != nil {
+			return e
+		}
 		if mode != "proxy" {
 			return domain.Fail(3, "Only proxy mode is implemented.", "TUN requires an independently verified privileged adapter.")
 		}
@@ -21,10 +29,6 @@ func lifecycleCommands(o *options, service func() (*app.Service, error), write f
 			return domain.Fail(2, "Invalid listener port.", "Use 1024–65535.")
 		}
 		l, e := app.AuthFile(authFile, core.Listener{Port: uint16(port)})
-		if e != nil {
-			return e
-		}
-		s, e := service()
 		if e != nil {
 			return e
 		}

@@ -4,7 +4,7 @@
     "name": "tunnelctl",
     "version": "0.2.0-dev",
     "release_candidate": "v0.2.0-rc.1",
-    "storage_schema": 2,
+    "storage_schema": 3,
     "output_schema": 1,
     "release_status": "local dry-run; no public tag/release created"
   },
@@ -248,17 +248,18 @@
     "fault_tests": "passed: port conflict, concurrent session, wrong credentials, duration, SIGINT/SIGTERM/SIGHUP, core crash, supervisor SIGKILL, cleanup conflict and forced-stop timeout",
     "fuzz": "passed, 10-second bounded parser campaign",
     "vet": "passed",
-    "race": "passed: full suite with race CLI, child-report capture and actual baseline upgrade (integration 142.950s); final privilege/profile/upgrade targeted checks 46.832s",
+    "race": "passed 2026-10-15: final full suite with race CLI, synthetic harness, child-report capture and actual schema-1/2 executable upgrades (integration 208.275s); no private samples read",
     "privileged_host_network_tests": "not run; no privileged network features implemented",
     "packet_capture_and_performance": "not measured",
     "native_macos_windows_arm64": "not run",
     "subscriptions": "passed: trusted local HTTPS, HMAC previews, SSRF/TLS/redirect/limits/cancel; staged rename/removal and filesystem commit failure preserve data; real CLI-to-proxy",
     "tui": "passed: compact/resize model checks and native Linux PTY rendering/navigation/quit smoke",
     "vulnerability_scan": "govulncheck v1.9.0: no vulnerabilities found 2026-10-14 (not a guarantee)",
-    "release": "passed: five local candidate archives, checksums/metadata/manual installation lifecycle; extracted Linux binary real-core suite 7.968 seconds; no public release",
+    "release": "passed: five persistence-delivery local candidate archives, checksums/metadata/manual installation lifecycle with populated preferences/sources/profiles retained (0.382s); no public release",
     "github_actions": "configured and commit-pinned; not executed remotely in this turn",
     "upgrade": "passed: actual 0.1.0 baseline executable, exact schema-1 backup and stable profile identity/selection; legacy refusal code 2 preserves newer data; upgraded real request",
-    "privilege": "passed: set-ID refusal and verified unprivileged real core; file capabilities refused, no elevated execution"
+    "privilege": "passed: set-ID refusal and verified unprivileged real core; file capabilities refused, no elevated execution",
+    "durable_storage": "schema 3: subprocess SIGKILL at four atomic boundaries, RLIMIT_FSIZE write failure, 50 concurrent commits, XDG/CWD isolation, shared CLI/TUI Save/discard/conflict, schema-1/2 exact backups, actual schema-2 executable upgrade and no active-session mutation passed; physical reboot/power loss and native multi-UID/cross-OS storage not certified"
   },
   "race": {
     "go": "1.27.2",
