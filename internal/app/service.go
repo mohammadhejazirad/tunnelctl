@@ -96,6 +96,9 @@ func (s *Service) Status() (domain.Session, error) { return s.supervisor().Statu
 func (s *Service) Stop() error                     { return s.supervisor().Stop() }
 func (s *Service) StopSession(id string) error     { return s.supervisor().StopSession(id) }
 func (s *Service) Run(ctx context.Context, key, mode string, l core.Listener, duration time.Duration, onReady func(domain.Session) error) (err error) {
+	if e := checkSessionExecution(); e != nil {
+		return e
+	}
 	if mode != "proxy" {
 		return domain.Fail(3, "Only proxy mode is implemented.", "TUN and host network mutation are deferred.")
 	}

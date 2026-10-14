@@ -170,7 +170,7 @@ go run ./cmd/audit
 go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 govulncheck ./...
 go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-actionlint .github/workflows/quality.yml .github/workflows/release.yml
+actionlint .github/workflows/*.yml
 go run ./cmd/release --tag v0.2.0-rc.1 --dry-run --out dist
 TUNNELCTL_RELEASE_DIR="$PWD/dist" TUNNELCTL_RELEASE_TAG=v0.2.0-rc.1 go test -v ./test/release
 ```
@@ -188,11 +188,72 @@ and Go -C without altering the worktree or creating tags.
 
 ## Not established
 
-Remote GitHub Actions, native macOS/Windows/ARM64, PowerShell runtime, other Linux
-distributions/musl, package managers, public-binary upgrade, multi-user hostile IPC,
+Remote GitHub Actions, native macOS/Windows/ARM64, PowerShell runtime, additional
+Linux/musl core networking combinations, public-installer upgrade, multi-user hostile IPC,
 every disk/power-loss boundary, privileged TUN/journal/watchdog/SSH/DNS/IPv6 rollback,
 services, Xray, packet capture, performance/resource budgets and an independent
 security/supply-chain review. Cross builds prove compilation only. The available
 rootless network namespace and /dev/net/tun are not certification of host managers
-or remote management recovery; Docker access is denied and no disposable host-like
-VM acceptance environment was provisioned. Unsupported features remain disabled.
+or remote management recovery. No disposable host-like VM acceptance environment
+was provisioned. Unsupported features remain disabled. See the later packaging
+evidence below for newly authorized offline Docker package tests; those do not
+supersede the TUN/host-network exclusions.
+
+## Packaging increment (2026-10-15)
+
+GoReleaser check and real CGO=0 five-target builds passed; nFPM generated deb,
+rpm, Arch and apk for amd64/arm64, plus two PKGBUILDs. Hash-pinned appimagetool
+generated both AppImage architectures. Archive tests actually extracted/executed
+Linux amd64 and verified all five targets' build/version metadata, documents,
+module licenses, privacy exclusions and stored-data preservation. New tests cover
+numeric native version order/limits, exact clean-tag binding in a disposable Git
+repository, missing/extra/tampered asset rejection and private/symlink rejection.
+
+Actual offline amd64 package collision/install/remove/help/version tests passed
+on Ubuntu 24.04.5, Debian 13.7, Fedora 43, Arch 20261011.0.609700 and Alpine
+3.22.6. Arch makepkg parsed the actual PKGBUILD as UID 1000, then built it as an
+ordinary builder user; the resulting package passed install/help/version/remove.
+Final repeated container gates also checked root ownership, 0755 directories and
+0644 documents. Minimal Docker images exclude docs globally; only the disposable
+test invocation overrides those exclusions to inspect this package's full content.
+No host packages or
+network settings changed. Fedora's /usr/sbin symlink alias and apk's non-aborting
+preinstall failure behavior were found and addressed, not suppressed.
+
+AppImage transient extraction metadata/stdin/JSON/redaction/persistence/exit tests
+passed. Directed-signal/core-crash tests exposed upstream's extra parent process;
+run/start/exec now explicitly refuse transient sessions. Stable extracted payload
+passed actual controlled-core requests, duration, all three stop signals,
+supervisor/core crash and detached/exec. /dev/fuse is absent: mounted execution
+is not claimed tested. Private sample file was never opened; all fixtures synthetic.
+
+Local finalize deliberately failed on missing native macOS pkg, proving the
+incomplete matrix cannot get checksums/publication as a full release. Windows MSI,
+macOS pkg and ARM native lifecycle, signing/notarization, full GitHub dry-run and
+live GitHub upload/download/promotion are **not executed locally**. No public tag
+or release was created. Native gates are mandatory when the workflow runs.
+
+After the application guards and packaging tests: `go test ./...`, `go vet ./...`,
+`go mod verify`, hygiene and actionlint passed. Full `go test -race -count=1 ./...`
+passed with GCC 15/CGO=1, real race-instrumented CLI/private harness and historical
+schema-1/schema-2 executable upgrade tests (integration package 208.589 s).
+Ordinary tests without explicit core/binary still skip opt-in network acceptance.
+
+Final public tests and a second public race pass covered the final packaging
+changes. Five-target archives passed again (0.352s); the rebuilt AppImage's
+metadata checks passed (0.186s), and its stable extracted payload passed the
+controlled real-core lifecycle suite (5.184s). The actual publisher script also
+passed synthetic transport tests for stable/prerelease promotion flags, existing
+release refusal, API failure, upload failure, tampered download and manual-run
+refusal. These tests verify control flow and real local checksum validation, not
+live GitHub authentication or API behavior.
+
+The final deb payload was separately extracted into private Unix storage and
+passed the core-enabled integration suite (13.966s). Optional old-executable and
+development-harness checks were not enabled in this last payload-only run; they
+were included in the full race run recorded above.
+
+Local candidate output is `dist/packages-delivery/` (dirty development dry-run).
+It is not a complete public release: missing native installers are not fabricated
+and the full-set finalization gate refuses them. All local packaging fixtures are
+synthetic; the root private sample file was never read.

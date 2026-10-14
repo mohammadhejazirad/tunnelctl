@@ -1,0 +1,206 @@
+name: Packaging validation
+on:
+  pull_request:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Dry-run version (never creates a tag or release)'
+        default: v0.2.0-rc.1
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        default: v0.2.0-rc.1
+        type: string
+      exact_tag:
+        default: false
+        type: boolean
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
+      EXACT_TAG: ${{ inputs.exact_tag || false }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Install hash-pinned packaging tools
+        run: |
+          bash packaging/tools.sh "$RUNNER_TEMP/package-tools"
+          echo "$RUNNER_TEMP/package-tools" >> "$GITHUB_PATH"
+      - name: Build CGO-free portable and nFPM packages without publication
+        run: |
+          flags=(--dry-run)
+          if [[ "$EXACT_TAG" == true ]]; then flags=(); fi
+          go run ./cmd/packaging --tag "$RELEASE_TAG" "${flags[@]}" --out dist/package-work
+          bash packaging/appimage/build.sh dist/package-work "$RUNNER_TEMP/package-tools" "${RELEASE_TAG#v}"
+          bash packaging/test-archives.sh dist/package-work/assets "$RELEASE_TAG"
+      - name: Extracted archive and AppImage real-core acceptance, synthetic inputs only
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/core" "$RUNNER_TEMP/installed"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --output "$RUNNER_TEMP/core/core.tar.gz" https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz
+          echo 'e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee  '"$RUNNER_TEMP/core/core.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/core/core.tar.gz" -C "$RUNNER_TEMP/core"
+          tar -xzf "dist/package-work/assets/tunnelctl_${RELEASE_TAG#v}_linux_amd64.tar.gz" -C "$RUNNER_TEMP/installed"
+          CGO_ENABLED=0 go build -o "$RUNNER_TEMP/private-test" ./cmd/private-test
+          TUNNELCTL_PRIVATE_TEST_BIN="$RUNNER_TEMP/private-test" TUNNELCTL_TEST_BIN="$RUNNER_TEMP/installed/tunnelctl" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -count=1 ./test/integration
+          TUNNELCTL_TEST_APPIMAGE="$PWD/dist/package-work/assets/tunnelctl_${RELEASE_TAG#v}_linux_amd64.AppImage" TUNNELCTL_RELEASE_TAG="$RELEASE_TAG" go test -count=1 -run TestAppImage ./test/integration
+          bash packaging/appimage/test.sh dist/package-work/assets "$RELEASE_TAG" "$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packages-base
+          path: dist/package-work/assets/
+          if-no-files-found: error
+          retention-days: 14
+  linux-install:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, arch: amd64}
+          - {runner: ubuntu-24.04-arm, arch: arm64}
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
+      PACKAGE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-base
+          path: assets
+      - name: Install/uninstall in distro-native containers, not on the host
+        run: |
+          cases=(
+            'ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 deb'
+            'debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f deb'
+            'fedora:43@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42 rpm'
+            'alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 apk'
+          )
+          if [[ "$PACKAGE_ARCH" == amd64 ]]; then cases+=('archlinux:base@sha256:3c64b538588416593f69a1aebd2f2ec0f2541b29159f32556fa7def2167147a0 arch'); fi
+          for entry in "${cases[@]}"; do
+            read -r image family <<< "$entry"
+            docker pull "$image"
+            docker image inspect "$image" --format '{{json .RepoDigests}}'
+            docker run --rm --network none --mount "type=bind,source=$PWD/assets,target=/assets,readonly" --mount "type=bind,source=$PWD/packaging/linux/test-container.sh,target=/test.sh,readonly" "$image" sh /test.sh "$family" "${RELEASE_TAG#v}" "$PACKAGE_ARCH"
+          done
+          if [[ "$PACKAGE_ARCH" == amd64 ]]; then
+            docker run --rm --network none --user 1000:1000 --mount "type=bind,source=$PWD/assets,target=/assets,readonly" -e VERSION="${RELEASE_TAG#v}" archlinux:base@sha256:3c64b538588416593f69a1aebd2f2ec0f2541b29159f32556fa7def2167147a0 bash -c 'mkdir /tmp/pkgbuild; cp "/assets/tunnelctl_${VERSION}_linux_amd64.PKGBUILD" /tmp/pkgbuild/PKGBUILD; cd /tmp/pkgbuild; makepkg --printsrcinfo'
+            docker run --rm --mount "type=bind,source=$PWD/assets,target=/assets,readonly" --mount "type=bind,source=$PWD/packaging/linux/test-pkgbuild.sh,target=/test-pkgbuild.sh,readonly" archlinux:base@sha256:3c64b538588416593f69a1aebd2f2ec0f2541b29159f32556fa7def2167147a0 bash /test-pkgbuild.sh "${RELEASE_TAG#v}"
+          fi
+      - name: Native AppImage metadata and experimental ARM Arch payload
+        run: |
+          image="$PWD/assets/tunnelctl_${RELEASE_TAG#v}_linux_${PACKAGE_ARCH}.AppImage"
+          chmod +x "$image"
+          result=$("$image" --appimage-extract-and-run version --json)
+          jq -e --arg tag "$RELEASE_TAG" '.ok and .data.tag == $tag' <<< "$result"
+          if [[ "$PACKAGE_ARCH" == arm64 ]]; then
+            mkdir -m700 "$RUNNER_TEMP/arch-arm"
+            tar --zstd -xf "assets/tunnelctl_${RELEASE_TAG#v}_linux_arm64.pkg.tar.zst" -C "$RUNNER_TEMP/arch-arm"
+            "$RUNNER_TEMP/arch-arm/usr/bin/tunnelctl" --help
+            echo 'Arch ARM64: payload smoke only; no approved Arch Linux ARM install environment.'
+          fi
+  macos-install:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-14, arch: arm64}
+          - {runner: macos-26-intel, arch: amd64}
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
+      PACKAGE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-base
+          path: assets
+      - name: Build and exercise native unsigned pkg
+        run: |
+          sw_vers
+          xcodebuild -version
+          bash packaging/macos/build.sh assets "$RELEASE_TAG" "$PACKAGE_ARCH"
+          bash packaging/macos/test.sh assets "$RELEASE_TAG" "$PACKAGE_ARCH"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packages-macos-${{ matrix.arch }}
+          path: assets/*.pkg
+          if-no-files-found: error
+          retention-days: 14
+  windows-install:
+    needs: build
+    runs-on: windows-2022
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-base
+          path: assets
+      - name: Build and exercise MSI PATH, upgrade, repair and removal
+        shell: pwsh
+        run: |
+          dotnet --info
+          ./packaging/windows/build.ps1 -Assets assets -Tag $env:RELEASE_TAG
+          ./packaging/windows/test.ps1 -Assets assets -Tag $env:RELEASE_TAG
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packages-windows-amd64
+          path: assets/*.msi
+          if-no-files-found: error
+          retention-days: 14
+  aggregate:
+    needs: [build, linux-install, macos-install, windows-install]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: assets
+      - name: Require complete allowlisted asset set and final checksums
+        run: |
+          go run ./cmd/packaging --mode finalize --tag "$RELEASE_TAG" --out assets
+          go run ./cmd/packaging --mode verify-assets --tag "$RELEASE_TAG" --out assets
+          bash packaging/test-archives.sh assets "$RELEASE_TAG"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets
+          path: assets/
+          if-no-files-found: error
+          retention-days: 14

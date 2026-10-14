@@ -1,0 +1,51 @@
+version: 2
+project_name: tunnelctl
+dist: dist/goreleaser
+builds:
+  - id: app
+    main: ./cmd/tunnelctl
+    binary: tunnelctl
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - {goos: windows, goarch: arm64}
+    flags: [-trimpath, -buildvcs=false]
+    ldflags:
+      - '-s -w -X tunnelctl/internal/buildinfo.Version={{ .Env.RELEASE_VERSION }} -X tunnelctl/internal/buildinfo.Tag={{ .Env.RELEASE_TAG }} -X tunnelctl/internal/buildinfo.Commit={{ .Env.RELEASE_COMMIT }} -X tunnelctl/internal/buildinfo.BuildDate={{ .Env.RELEASE_DATE }}'
+archives:
+  - id: portable
+    ids: [app]
+    name_template: 'tunnelctl_{{ .Env.RELEASE_VERSION }}_{{ .Os }}_{{ .Arch }}'
+    formats: [tar.gz]
+    format_overrides:
+      - {goos: windows, formats: [zip]}
+    files: [] # GENERATED_PUBLIC_ARCHIVE_FILES
+nfpms:
+  - id: linux
+    ids: [app]
+    package_name: tunnelctl
+    file_name_template: 'tunnelctl_{{ .Env.RELEASE_VERSION }}_{{ .Os }}_{{ .Arch }}'
+    homepage: https://github.com/mohammadhejazirad/tunnelctl
+    maintainer: Mohammad Hejazirad <mohammadhejazirad@users.noreply.github.com>
+    description: Terminal proxy client. Only Linux amd64 proxy runtime approved; other targets experimental. External verified sing-box required. No TUN or service.
+    license: Apache-2.0
+    formats: [deb, rpm, archlinux, apk]
+    bindir: /usr/bin
+    release: '1'
+    umask: 0o022
+    contents: [] # GENERATED_PUBLIC_PACKAGE_FILES
+    scripts:
+      preinstall: packaging/linux/preinstall.sh
+    overrides:
+      apk:
+        scripts:
+          preinstall: packaging/linux/apk-preinstall.sh
+snapshot:
+  version_template: '{{ .Env.NATIVE_VERSION }}'
+checksum:
+  name_template: goreleaser-checksums.txt
+changelog:
+  disable: true
+release:
+  disable: true

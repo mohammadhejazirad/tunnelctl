@@ -27,7 +27,7 @@ jobs:
       - name: Validate workflow contracts (pinned source)
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          actionlint .github/workflows/quality.yml .github/workflows/release.yml
+          actionlint .github/workflows/*.yml
       - name: Fetch exact approved external test core
         run: |
           mkdir -m 700 "$RUNNER_TEMP/core"

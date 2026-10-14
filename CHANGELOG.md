@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased packaging increment
+
+- GoReleaser 2.18.3 / embedded nFPM 2.47.0: five CGO-free archives and Linux
+  amd64/arm64 deb/rpm/Arch/apk; exact-hash PKGBUILD and pinned-runtime AppImages.
+- Native WiX 5.0.2 MSI and macOS pkg build/install lifecycle gates, owned PATH
+  entries/collision handling, no core/network/service side effects or data purge.
+- Monotonic SemVer-to-native version mapping; complete expected-asset/hash gates,
+  module SBOM, provenance and draft verification before automatic tag publication.
+- Explicit experimental non-approved runtimes, unsigned/not-notarized installers,
+  apk collision backup behavior and AppImage stable no-FUSE extraction guidance.
+
 ## Unreleased durable-storage increment
 
 - Schema 3: persistent CLI/TUI defaults, profile tags/favorites and exact protected

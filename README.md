@@ -16,7 +16,8 @@ No download badge implies assets have already been published.
 - Transactional HTTPS subscriptions: preview, last-good preservation, stable IDs,
   conditional requests and explicit deletion approval.
 - Isolated child `exec`, shell completion and Bubble Tea/Lip Gloss keyboard TUI.
-- SemVer metadata, schema migration, archive/checksum/SBOM packaging and draft CI.
+- SemVer metadata, schema migration, native packaging, checksums/module SBOM and
+  fully gated automatic tag releases (draft/upload verification before publication).
 
 Only **Shadowsocks SIP002 over TCP**, without plugins, is supported. Methods:
 `aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`. Feeds contain newline links
@@ -37,9 +38,12 @@ networking and requires separate privilege, ownership and recovery gates.
 | Windows amd64 | Compile-only | ACL/IPC/lifecycle pending | Unsupported | Unsupported |
 | Windows arm64 | Not built | Not tested | Unsupported | Unsupported |
 
-Debian, Fedora, Arch, openSUSE and Alpine/musl are **not yet tested**. Configuring a
-CI runner does not prove it has run. See [matrix](docs/compatibility.md) and
-[actual evidence](docs/testing.md).
+Package installation/help/version/collision/removal have additionally been tested
+in Ubuntu 24.04, Debian 13, Fedora 43, Arch (pinned container) and Alpine 3.22/musl
+on amd64. This does **not** certify their core/networking combinations. ARM,
+macOS and Windows native installation gates are configured but have not run in
+this local session. openSUSE remains untested. See [matrix](docs/compatibility.md),
+[packaging evidence](docs/packaging-checklist.md) and [tests](docs/testing.md).
 
 ## Installation and prerequisites
 
@@ -52,17 +56,48 @@ Core is **user-installed separately**: exact approved sing-box **1.14.3**
 linux-amd64 digest. No core is bundled or automatically downloaded. Follow
 [core verification](docs/core-versions.md); never replace an active core.
 
-When an authorized release exists, obtain the archive/checksums from the same tag's
-assets. Until then build from source. Linux archive installation:
+When a release exists, download its assets/checksums from the same tag at
+https://github.com/mohammadhejazirad/tunnelctl/releases. Until then build from
+source. VERSION below means the published version without `v`, not a promised
+release. The complete [installation guide](docs/install.md) covers checksums,
+PATH, system-wide/per-user installs, updates, removal and collision behavior.
+
+| Target | Installer | Portable |
+|---|---|---|
+| Linux amd64 / arm64 | `.deb`, `.rpm`, `.pkg.tar.zst` + `PKGBUILD`, `.apk` | `.tar.gz`, `.AppImage` |
+| macOS amd64 / arm64 (experimental runtime) | `.pkg` | `.tar.gz` |
+| Windows amd64 (experimental runtime) | `.msi` | `.zip` |
+
+Names: `tunnelctl_VERSION_OS_ARCH.EXT` (macOS OS name is `darwin`). Arch ARM64
+is payload-smoke-only, not an approved native installation. No Windows arm64,
+universal binary or APT/DNF/AUR/Homebrew/WinGet repository is offered.
+
+```sh
+sudo apt install ./tunnelctl_VERSION_linux_amd64.deb       # Debian/Ubuntu
+sudo dnf install ./tunnelctl_VERSION_linux_amd64.rpm       # Fedora
+sudo pacman -U ./tunnelctl_VERSION_linux_amd64.pkg.tar.zst # Arch
+sudo apk add --allow-untrusted ./tunnelctl_VERSION_linux_amd64.apk # Verified local unsigned file
+cd /tmp
+tunnelctl version --json
+```
+
+Native packages own `/usr/bin/tunnelctl`. macOS pkg owns
+`/Library/Application Support/tunnelctl` and a checked `/usr/local/bin/tunnelctl` symlink;
+MSI owns Program Files/tunnelctl and its machine PATH entry. All leave per-user
+data/private cores alone and never connect, change networking or enable services.
+Alpine warns and privately backs up unmanaged collisions because apk cannot
+reliably abort unpacking after a script failure; other native packages refuse.
+
+Linux per-user archive installation (example candidate only, not published):
 
 ```sh
 sha256sum --check checksums.txt
 # Inspect paths/types before extracting a downloaded archive.
 tar -tzf tunnelctl_0.2.0-rc.1_linux_amd64.tar.gz
-mkdir -m 700 ./tunnelctl-unpacked
-tar -xzf tunnelctl_0.2.0-rc.1_linux_amd64.tar.gz -C ./tunnelctl-unpacked
-mkdir -p "$HOME/.local/bin"
-install -m 0755 ./tunnelctl-unpacked/tunnelctl "$HOME/.local/bin/tunnelctl"
+mkdir -p "$HOME/.local/lib" "$HOME/.local/bin"
+mkdir -m 700 "$HOME/.local/lib/tunnelctl-0.2.0-rc.1"
+tar -xzf tunnelctl_0.2.0-rc.1_linux_amd64.tar.gz -C "$HOME/.local/lib/tunnelctl-0.2.0-rc.1"
+ln -s "$HOME/.local/lib/tunnelctl-0.2.0-rc.1/tunnelctl" "$HOME/.local/bin/tunnelctl"
 "$HOME/.local/bin/tunnelctl" version --json
 ```
 
@@ -71,25 +106,38 @@ detached executables. Installation only copies files; no connection, host networ
 change or boot persistence. Archives contain notices, dependency license texts,
 offline docs and `SUPPORT.txt`.
 
-macOS/Windows archives are **compile-only**, not supported client installations.
-The following commands inspect artifacts, not native VPN functionality:
+AppImage is terminal-only, no emulator/desktop required. FUSE mounted execution
+is untested here; the documented stable extraction fallback is tested. Do not use
+transient `--appimage-extract-and-run` for sessions: its lifecycle differs. Never
+run AppImage/TUI as root. See [FUSE, fallback and PATH links](docs/install.md#appimage-without-a-desktop).
+
+macOS/Windows installers and archives are **experimental runtime builds**, not
+supported VPN clients. The native workflows exercise installation/PATH/lifecycle,
+not connection support. macOS (choose amd64 on Intel):
 
 ```sh
-# macOS: compare this digest with the exact filename in checksums.txt.
-shasum -a 256 tunnelctl_0.2.0-rc.1_darwin_arm64_compile-only.tar.gz
-tar -tzf tunnelctl_0.2.0-rc.1_darwin_arm64_compile-only.tar.gz
+shasum -a 256 tunnelctl_VERSION_darwin_arm64.pkg
+sudo installer -pkg ./tunnelctl_VERSION_darwin_arm64.pkg -target /
+cd /tmp
+tunnelctl version --json
 ```
 
 ```powershell
-Get-FileHash .\tunnelctl_0.2.0-rc.1_windows_amd64_compile-only.zip -Algorithm SHA256
-Expand-Archive -LiteralPath .\tunnelctl_0.2.0-rc.1_windows_amd64_compile-only.zip -DestinationPath .\tunnelctl-inspect
-.\tunnelctl-inspect\tunnelctl.exe version --json
-.\tunnelctl-inspect\tunnelctl.exe --help
+Get-FileHash .\tunnelctl_VERSION_windows_amd64.msi -Algorithm SHA256
+# After verifying checksum, Administrator PowerShell for installation only:
+$msi = (Resolve-Path .\tunnelctl_VERSION_windows_amd64.msi).Path
+$p = Start-Process msiexec.exe -ArgumentList @('/i', ('"' + $msi + '"'), '/qn', '/norestart') -Wait -PassThru
+if ($p.ExitCode -notin @(0,3010)) { throw "Installer failed: $($p.ExitCode)" }
+# Open a NEW ordinary PowerShell to refresh PATH:
+Set-Location $env:TEMP
+Get-Command tunnelctl
+tunnelctl version --json
 # init/run are unsupported on Windows; do not deploy as a Windows VPN.
 ```
 
-Checksums detect corruption, not independent authenticity. The draft workflow
-requests GitHub build-provenance attestations. Once actually available, verify an
+Checksums detect corruption, not independent authenticity. Installers are unsigned
+and macOS not notarized; do not disable system security to bypass policy. The
+release workflow requests GitHub build-provenance attestations. Once available, verify an
 archive with `gh attestation verify ARCHIVE --repo mohammadhejazirad/tunnelctl`.
 No local dry-run attestation/signing key is claimed.
 
@@ -286,8 +334,11 @@ make race CORE=/absolute/path/to/approved/sing-box
 go run ./cmd/audit
 go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 govulncheck ./...
-go run ./cmd/release --tag v0.2.0-rc.1 --dry-run --out dist
-TUNNELCTL_RELEASE_DIR="$PWD/dist" TUNNELCTL_RELEASE_TAG=v0.2.0-rc.1 go test ./test/release
+bash packaging/tools.sh /tmp/tunnelctl-package-tools
+export PATH="/tmp/tunnelctl-package-tools:$PATH"
+go run ./cmd/packaging --tag v0.2.0-rc.1 --dry-run --out dist/packages
+bash packaging/appimage/build.sh dist/packages /tmp/tunnelctl-package-tools 0.2.0-rc.1
+bash packaging/test-archives.sh dist/packages/assets v0.2.0-rc.1
 ```
 
 Without explicit binary/core variables, real acceptance tests **skip**: not evidence
@@ -299,7 +350,10 @@ of connection success. See [tests](docs/testing.md), [manifest](compatibility.js
 Pre-1.0 minor releases may change APIs with documented migrations; patches should
 retain compatibility. App, output/storage schema and core versions are independent.
 SemVer tags, including prereleases, drive release metadata. Workflow gates all
-targets before preparing a **draft**, never an automatically public release.
+targets, creates/verifies a complete draft, then **automatically publishes** only
+on a valid pushed tag. Manual dispatch is dry-run only. Missing required installers
+block publication; existing releases/assets are never overwritten. Read
+[tagging, signing setup and failed-draft recovery](docs/releasing.md).
 Full product completion still requires separately gated TUN/native/service/backend
 work. See [versioning](docs/versioning.md).
 

@@ -16,6 +16,6 @@ vet:
 audit:
 	$(GO) run ./cmd/audit
 release-dry-run:
-	$(GO) run ./cmd/release --tag v0.2.0-rc.1 --dry-run --out dist
+	$(GO) run ./cmd/packaging --tag v0.2.0-rc.1 --dry-run --out dist/packages
 clean:
 	$(GO) clean

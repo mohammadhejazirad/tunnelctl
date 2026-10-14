@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=tunnelctl
+Comment=Terminal proxy client
+Exec=tunnelctl
+Icon=tunnelctl
+Terminal=true
+Categories=Network;ConsoleOnly;

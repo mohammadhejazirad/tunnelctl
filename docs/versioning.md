@@ -36,3 +36,10 @@ power-loss certification.
 See [durable data](storage.md) for exact transaction, form conflict, restore and
 explicit deletion behavior. Source version remains 0.2.0-dev; no published tag is
 rewritten and no new public release is implied by the storage schema increment.
+
+Native installer versions are deliberately different from application SemVer:
+`major.minor.(patch*1000+rank)`, alpha.N rank N, beta.N 200+N, rc.N 400+N,
+final 999. Bounds are major/minor <=255, patch <=64, N=1..199. This preserves
+upgrade order across MSI/deb/rpm/pacman/apk/pkg. Other prerelease formats and build
+metadata are rejected by packaging before any publication. See
+[packaging contract](packaging.md) and [tag publication](releasing.md).

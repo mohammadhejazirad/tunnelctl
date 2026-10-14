@@ -35,11 +35,105 @@ func main() {
 	tag := flag.String("tag", "", "Semantic release tag")
 	out := flag.String("out", "dist", "New empty output directory")
 	dry := flag.Bool("dry-run", false, "Permit an untagged working tree; never publish")
+	public := flag.Bool("stage-public", false, "Stage only explicitly public documents, licenses and module SBOM for GoReleaser")
 	flag.Parse()
+	if *public {
+		if e := stagePublic(*tag, *out); e != nil {
+			fmt.Fprintln(os.Stderr, "Public staging failed:", e)
+			os.Exit(1)
+		}
+		return
+	}
 	if e := run(*tag, *out, *dry); e != nil {
 		fmt.Fprintln(os.Stderr, "Release preparation failed:", e)
 		os.Exit(1)
 	}
+}
+
+// stagePublic deliberately does not walk the checkout. Only the same explicit
+// document/example allowlist used by the archive tests can enter this directory.
+func stagePublic(tag, out string) error {
+	version, err := buildinfo.FromTag(tag)
+	if err != nil {
+		return err
+	}
+	if _, err = os.Lstat(out); !os.IsNotExist(err) {
+		return fmt.Errorf("public stage must not already exist")
+	}
+	if err = os.MkdirAll(out, 0755); err != nil {
+		return err
+	}
+	goTool := os.Getenv("RELEASE_GO")
+	if goTool == "" {
+		goTool = "go"
+	}
+	modules, err := moduleInventory(goTool)
+	if err != nil {
+		return err
+	}
+	if err = collectLicenses(modules, filepath.Join(out, "THIRD_PARTY_LICENSES")); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(filepath.Join(out, "THIRD_PARTY_LICENSES"))
+	if err != nil {
+		return err
+	}
+	var notices bytes.Buffer
+	for _, entry := range entries {
+		b, e := os.ReadFile(filepath.Join(out, "THIRD_PARTY_LICENSES", entry.Name()))
+		if e != nil {
+			return e
+		}
+		fmt.Fprintf(&notices, "\n===== %s =====\n", entry.Name())
+		notices.Write(b)
+	}
+	if err = os.WriteFile(filepath.Join(out, "THIRD-PARTY-NOTICES.txt"), notices.Bytes(), 0644); err != nil {
+		return err
+	}
+	for _, name := range []string{"LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "SECURITY.md", "compatibility.json"} {
+		if err = copyFile(name, filepath.Join(out, name)); err != nil {
+			return err
+		}
+	}
+	for _, name := range []string{"docs", "examples"} {
+		if err = copyPublicTree(name, filepath.Join(out, name)); err != nil {
+			return err
+		}
+	}
+	b, err := os.ReadFile(filepath.Join(out, "compatibility.json"))
+	if err != nil {
+		return err
+	}
+	var manifest map[string]any
+	if err = json.Unmarshal(b, &manifest); err != nil {
+		return err
+	}
+	app := manifest["application"].(map[string]any)
+	app["version"], app["release_tag"] = version, tag
+	if strings.Contains(version, "-") {
+		app["release_candidate"] = tag
+	} else {
+		delete(app, "release_candidate")
+	}
+	app["release_status"] = "See release-manifest.json for build and publication status"
+	if err = writeJSON(filepath.Join(out, "compatibility.json"), manifest); err != nil {
+		return err
+	}
+	if err = os.WriteFile(filepath.Join(out, "SUPPORT.txt"), []byte("Only Linux amd64 has an approved proxy runtime. All other target packages are experimental installation/metadata builds; proxy runtime is refused. No TUN, service, Xray or core is bundled. See compatibility.json.\n"), 0644); err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(modules))
+	components := []map[string]string{}
+	for {
+		var m struct{ Path, Version string }
+		if err = decoder.Decode(&m); err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		components = append(components, map[string]string{"type": "library", "name": m.Path, "version": m.Version})
+	}
+	return writeJSON(filepath.Join(out, "sbom.cdx.json"), map[string]any{"bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1, "metadata": map[string]any{"component": map[string]string{"type": "application", "name": "tunnelctl", "version": version}}, "components": components})
 }
 func run(tag, out string, dry bool) error {
 	version, e := buildinfo.FromTag(tag)
@@ -352,7 +446,7 @@ func copyPublicTree(from, to string) error {
 		"docs":     {"architecture.md", "cli.md", "compatibility.md", "core-versions.md", "execution-checklist.md", "install.md", "recovery.md", "releasing.md", "release-notes-0.2.0.md", "roadmap.md", "security.md", "subscriptions.md", "testing.md", "versioning.md", "tui.md", "private-testing.md", "decisions/0001-storage.md", "decisions/0002-privileges.md", "decisions/0003-route-ownership.md"},
 	}
 	if from == "docs" {
-		allowed["docs"] = append(allowed["docs"], "storage.md")
+		allowed["docs"] = append(allowed["docs"], "storage.md", "packaging-checklist.md", "packaging.md", "decisions/0004-packaging.md")
 	}
 	names, ok := allowed[from]
 	if !ok {

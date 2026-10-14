@@ -9,6 +9,24 @@
     "release_status": "local dry-run; no public tag/release created"
   },
   "verified_on": "2026-10-14",
+  "packaging": {
+    "verified_on": "2026-10-15",
+    "goreleaser": "2.18.3",
+    "nfpm_embedded": "2.47.0",
+    "appimagetool": "1.9.1",
+    "appimage_runtime_commit": "8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa",
+    "wix": "5.0.2",
+    "macos_tools": "native pkgbuild/productbuild; runner versions recorded by CI",
+    "release_cgo": false,
+    "linux_built_architectures": ["amd64", "arm64"],
+    "linux_built_formats": ["deb", "rpm", "pkg.tar.zst", "apk", "tar.gz", "AppImage", "PKGBUILD"],
+    "amd64_container_lifecycle_tested": ["Ubuntu 24.04.5", "Debian 13.7", "Fedora 43", "Arch 20261011.0.609700", "Alpine 3.22.6"],
+    "appimage_amd64": "stable extraction proxy/lifecycle tested; transient sessions refused; FUSE unavailable",
+    "native_msi_pkg_arm_installation": "CI configured; not locally executed",
+    "signed": false,
+    "notarized": false,
+    "public_release_created": false
+  },
   "go": {
     "version": "1.27.2",
     "source_url": "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz",

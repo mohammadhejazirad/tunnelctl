@@ -56,7 +56,12 @@ func inspect(t *testing.T, path string, native bool, tag string) {
 	t.Helper()
 	entries := map[string][]byte{}
 	modes := map[string]os.FileMode{}
+	members := map[string]bool{}
 	valid := func(name string) {
+		if members[name] {
+			t.Fatal("duplicate archive member", name)
+		}
+		members[name] = true
 		if hygiene.PrivatePath(name) || filepath.Base(name) == "private-test" || filepath.Base(name) == "private-test.exe" {
 			t.Fatal("private input/report/tool entered release")
 		}

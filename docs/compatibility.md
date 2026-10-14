@@ -39,3 +39,34 @@ integrate with systemd, NetworkManager or host DNS managers; absence of an init
 dependency is not certification of every distribution. Feature checks matter more
 than distro names. Minimum kernel version is unestablished. Windows PowerShell
 completion is generated but native commands beyond help/version are unsupported.
+
+## Native package evidence (2026-10-15)
+
+These **amd64 container installation tests** are separate from the host/core
+proxy table above. Each ran offline after image download: unmanaged collision,
+install from /tmp, command lookup, help/version, root ownership/modes, native
+version ordering where available, removal and preservation of synthetic user data.
+
+| Image / exact release | Format | Local evidence |
+|---|---|---|
+| Ubuntu 24.04.5 LTS | deb | Passed |
+| Debian 13.7 (trixie) | deb | Passed |
+| Fedora 43 Container Image | rpm | Passed (merged /usr/sbin path alias accounted for) |
+| Arch 20261011.0.609700 | pkg.tar.zst | Passed; generated PKGBUILD built as ordinary user and resulting package installed/removed |
+| Alpine 3.22.6 (musl) | apk | Passed; unmanaged backup/warning tested |
+
+Image digests are pinned in packaging.yml. These tests do not certify TUN,
+NetworkManager/systemd/DNS integration, musl core compatibility or host kernel
+support. No host package was installed/removed. ARM64 native containers,
+macOS pkg, Windows MSI and PowerShell installer tests are configured in GitHub
+Actions but not locally executed. Arch ARM64 is only an experimental payload
+build; no approved Arch Linux ARM native installation environment is provided.
+openSUSE, WSL, service and all TUN combinations remain uncertified.
+
+AppImage amd64: stable extracted payload passed real proxy/HTTP/SOCKS/TLS,
+duration, Ctrl+C/SIGTERM/SIGHUP, core/supervisor crash and detached/exec tests.
+Temporary --appimage-extract-and-run failed directed-signal/lifecycle tests;
+shared application services now refuse sessions in that mode. Metadata/import
+remain testable there. FUSE-mounted execution cannot be tested here (/dev/fuse
+absent); source confirms exec-based AppRun but this is not runtime evidence.
+See [packaging contract](packaging.md).

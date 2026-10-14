@@ -23,6 +23,9 @@ func (s *Service) Logs() ([]session.Event, error) {
 	return session.ReadEvents(filepath.Join(s.Store.Paths.State, "events.json"))
 }
 func (s *Service) Start(ctx context.Context, key string, l core.Listener, duration time.Duration) (domain.Session, error) {
+	if e := checkSessionExecution(); e != nil {
+		return domain.Session{}, e
+	}
 	executable, e := os.Executable()
 	if e != nil {
 		return domain.Session{}, domain.Unexpected()
@@ -156,6 +159,9 @@ type ChildExit struct{ Code int }
 
 func (e *ChildExit) Error() string { return "The child command exited unsuccessfully." }
 func (s *Service) Exec(ctx context.Context, key string, args []string, in io.Reader, out, diagnostics io.Writer) (err error) {
+	if e := checkSessionExecution(); e != nil {
+		return e
+	}
 	if len(args) == 0 {
 		return domain.Fail(2, "A child command is required.", "Use exec -- COMMAND ARGUMENTS.")
 	}

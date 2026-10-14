@@ -1,0 +1,49 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="tunnelctl (experimental Windows runtime)" Manufacturer="tunnelctl contributors"
+           Version="$(var.NativeVersion)" UpgradeCode="A2C3F721-08C0-4F9A-91D8-836A55788191"
+           Language="1033" Scope="perMachine" InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer tunnelctl installer is already installed."
+                  Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="ORIGINAL_MACHINE_PATH">
+      <RegistrySearch Id="ReadMachinePath" Root="HKLM" Key="SYSTEM\CurrentControlSet\Control\Session Manager\Environment" Name="Path" Type="raw" />
+    </Property>
+    <Property Id="PATH_OWNED">
+      <RegistrySearch Id="ReadOwnedPath" Root="HKLM" Key="Software\tunnelctl" Name="InstallDirectory" Type="raw" />
+    </Property>
+    <SetProperty Id="INSTALLPATH_SEARCH" Value="[ProgramFiles64Folder]tunnelctl" Before="LaunchConditions" Sequence="both" />
+    <Launch Condition="PATH_OWNED OR Installed OR WIX_UPGRADE_DETECTED OR (NOT (ORIGINAL_MACHINE_PATH ~&gt;&lt; INSTALLPATH_SEARCH) AND NOT (ORIGINAL_MACHINE_PATH ~&gt;&lt; &quot;%ProgramFiles%\tunnelctl&quot;) AND NOT (ORIGINAL_MACHINE_PATH ~&gt;&lt; &quot;%ProgramW6432%\tunnelctl&quot;))"
+            Message="An unmanaged machine PATH entry already references the tunnelctl installation directory. Migrate it explicitly; this installer will not claim or remove another installation's PATH entry." />
+    <Property Id="EXISTING_BINARY">
+      <DirectorySearch Id="ExistingInstall" Path="[ProgramFiles64Folder]tunnelctl" Depth="0">
+        <FileSearch Id="ExistingExe" Name="tunnelctl.exe" />
+      </DirectorySearch>
+    </Property>
+    <Launch Condition="NOT EXISTING_BINARY OR Installed OR WIX_UPGRADE_DETECTED"
+            Message="An unmanaged tunnelctl.exe already exists in Program Files. Migrate or remove it explicitly before installing." />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="tunnelctl">
+        <Component Id="Executable" Guid="*">
+          <File Id="App" Source="$(var.SourceDir)\tunnelctl.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="OwnedPath" Guid="C346E7B4-7CB6-4AAC-8805-9CE0A2784A3C">
+          <RegistryValue Root="HKLM" Key="Software\tunnelctl" Name="InstallDirectory" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
+          <Environment Id="MachinePath" Name="PATH" Value="[INSTALLFOLDER]" Action="set" Part="last" System="yes" Permanent="no" />
+        </Component>
+        <Component Id="PublicDocuments" Guid="*">
+          <File Source="$(var.SourceDir)\LICENSE" KeyPath="yes" />
+          <File Source="$(var.SourceDir)\NOTICE" />
+          <File Source="$(var.SourceDir)\SUPPORT.txt" />
+          <File Source="$(var.SourceDir)\README.md" />
+          <File Source="$(var.SourceDir)\THIRD-PARTY-NOTICES.txt" />
+          <File Source="$(var.SourceDir)\sbom.cdx.json" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <Feature Id="Application" Title="tunnelctl" Level="1">
+      <ComponentRef Id="Executable" />
+      <ComponentRef Id="OwnedPath" />
+      <ComponentRef Id="PublicDocuments" />
+    </Feature>
+  </Package>
+</Wix>

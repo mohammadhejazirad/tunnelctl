@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+target=/usr/local/bin/tunnelctl
+payload='/Library/Application Support/tunnelctl'
+receipt=io.github.mohammadhejazirad.tunnelctl
+for parent in /Library '/Library/Application Support'; do
+    mode=$(stat -f %Lp "$parent")
+    if [ -L "$parent" ] || [ "$(stat -f %u "$parent")" != 0 ] || [ "$((0$mode & 022))" -ne 0 ]; then
+        echo 'Installer payload ancestors must be root-owned and not writable by other users. Refusing unsafe installation.' >&2
+        exit 1
+    fi
+done
+if [ -e "$target" ] || [ -L "$target" ]; then
+    if [ ! -L "$target" ] || [ "$(readlink "$target")" != "$payload/tunnelctl" ] || ! pkgutil --pkg-info "$receipt" >/dev/null 2>&1; then
+        echo 'Refusing to replace an unmanaged /usr/local/bin/tunnelctl (including Homebrew). Migrate it explicitly.' >&2
+        exit 1
+    fi
+fi
+if [ -e "$payload" ] && ! pkgutil --pkg-info "$receipt" >/dev/null 2>&1; then
+    echo 'Refusing to replace an unmanaged system-wide tunnelctl payload.' >&2
+    exit 1
+fi
