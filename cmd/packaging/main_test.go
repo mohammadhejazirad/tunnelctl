@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,32 @@ import (
 	"testing"
 	"tunnelctl/internal/packaging"
 )
+
+func TestWiXAutoGuidComponentsHaveSingleFile(t *testing.T) {
+	type component struct {
+		ID    string     `xml:"Id,attr"`
+		GUID  string     `xml:"Guid,attr"`
+		Files []struct{} `xml:"File"`
+	}
+	var manifest struct {
+		Components []component `xml:"Package>StandardDirectory>Directory>Component"`
+	}
+	b, err := os.ReadFile("../../packaging/windows/Product.wxs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = xml.Unmarshal(b, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Components) == 0 {
+		t.Fatal("WiX manifest contains no components")
+	}
+	for _, c := range manifest.Components {
+		if c.GUID == "*" && len(c.Files) != 1 {
+			t.Fatalf("WiX auto-guid component %q must own exactly one file, got %d", c.ID, len(c.Files))
+		}
+	}
+}
 
 func TestAggregateRejectsMissingUnexpectedAndTampered(t *testing.T) {
 	v, _ := packaging.Parse("v0.2.0-rc.1")

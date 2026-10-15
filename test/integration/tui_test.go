@@ -73,7 +73,8 @@ func TestTUIMenuConnectDetachedExitAndConfirmedStop(t *testing.T) {
 	if e != nil {
 		t.Skip("util-linux script required")
 	}
-	s, e := app.New(f.root, f.core, 3*time.Second)
+	// Keep the detached session alive while race instrumentation slows the suite.
+	s, e := app.New(f.root, f.core, 30*time.Second)
 	if e != nil {
 		t.Fatal(e)
 	}

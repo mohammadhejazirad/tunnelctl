@@ -33,16 +33,17 @@ networking and requires separate privilege, ownership and recovery gates.
 | Target | Build | Native evidence | Proxy | TUN/service |
 |---|---|---|---|---|
 | Linux amd64 | Tested | Ubuntu 26.04.1, kernel 7.0.0-38-generic | Tested | Unsupported |
-| Linux arm64 | Compile-only | No approved core/native test | Unsupported | Unsupported |
-| macOS amd64 / arm64 | Compile-only | Storage/lifecycle pending | Unsupported | Unsupported |
-| Windows amd64 | Compile-only | ACL/IPC/lifecycle pending | Unsupported | Unsupported |
+| Linux arm64 | Compile-only | Package/payload gates passed; no approved core test | Unsupported | Unsupported |
+| macOS amd64 / arm64 | Compile-only | Installer lifecycle passed; runtime storage pending | Unsupported | Unsupported |
+| Windows amd64 | Compile-only | MSI rerun and ACL/IPC runtime gates pending | Unsupported | Unsupported |
 | Windows arm64 | Not built | Not tested | Unsupported | Unsupported |
 
 Package installation/help/version/collision/removal have additionally been tested
 in Ubuntu 24.04, Debian 13, Fedora 43, Arch (pinned container) and Alpine 3.22/musl
-on amd64. This does **not** certify their core/networking combinations. ARM,
-macOS and Windows native installation gates are configured but have not run in
-this local session. openSUSE remains untested. See [matrix](docs/compatibility.md),
+on amd64. Remote CI also passed Linux arm64 payload/package checks and native pkg
+lifecycle tests on macOS amd64/arm64. The Windows MSI source fix still requires a
+remote Windows rerun. This does **not** certify non-Linux core/networking behavior.
+openSUSE remains untested. See [matrix](docs/compatibility.md),
 [packaging evidence](docs/packaging-checklist.md) and [tests](docs/testing.md).
 
 ## Installation and prerequisites

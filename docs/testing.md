@@ -233,6 +233,13 @@ macOS pkg and ARM native lifecycle, signing/notarization, full GitHub dry-run an
 live GitHub upload/download/promotion are **not executed locally**. No public tag
 or release was created. Native gates are mandatory when the workflow runs.
 
+Remote Packaging validation on 2026-10-14 passed its base build, Linux amd64/arm64
+package checks and native macOS amd64/arm64 pkg lifecycle jobs. Windows stopped
+before installation with WiX WIX0367 because one auto-GUID component owned six
+unversioned files. The manifest now assigns one file per auto-GUID component and a
+Go regression test enforces that rule; a remote Windows rerun and aggregate remain
+required before release evidence is complete.
+
 After the application guards and packaging tests: `go test ./...`, `go vet ./...`,
 `go mod verify`, hygiene and actionlint passed. Full `go test -race -count=1 ./...`
 passed with GCC 15/CGO=1, real race-instrumented CLI/private harness and historical

@@ -30,20 +30,35 @@
           <RegistryValue Root="HKLM" Key="Software\tunnelctl" Name="InstallDirectory" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
           <Environment Id="MachinePath" Name="PATH" Value="[INSTALLFOLDER]" Action="set" Part="last" System="yes" Permanent="no" />
         </Component>
-        <Component Id="PublicDocuments" Guid="*">
+        <Component Id="PublicLicense" Guid="*">
           <File Source="$(var.SourceDir)\LICENSE" KeyPath="yes" />
-          <File Source="$(var.SourceDir)\NOTICE" />
-          <File Source="$(var.SourceDir)\SUPPORT.txt" />
-          <File Source="$(var.SourceDir)\README.md" />
-          <File Source="$(var.SourceDir)\THIRD-PARTY-NOTICES.txt" />
-          <File Source="$(var.SourceDir)\sbom.cdx.json" />
+        </Component>
+        <Component Id="PublicNotice" Guid="*">
+          <File Source="$(var.SourceDir)\NOTICE" KeyPath="yes" />
+        </Component>
+        <Component Id="PublicSupport" Guid="*">
+          <File Source="$(var.SourceDir)\SUPPORT.txt" KeyPath="yes" />
+        </Component>
+        <Component Id="PublicReadme" Guid="*">
+          <File Source="$(var.SourceDir)\README.md" KeyPath="yes" />
+        </Component>
+        <Component Id="PublicThirdPartyNotices" Guid="*">
+          <File Source="$(var.SourceDir)\THIRD-PARTY-NOTICES.txt" KeyPath="yes" />
+        </Component>
+        <Component Id="PublicSBOM" Guid="*">
+          <File Source="$(var.SourceDir)\sbom.cdx.json" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
     <Feature Id="Application" Title="tunnelctl" Level="1">
       <ComponentRef Id="Executable" />
       <ComponentRef Id="OwnedPath" />
-      <ComponentRef Id="PublicDocuments" />
+      <ComponentRef Id="PublicLicense" />
+      <ComponentRef Id="PublicNotice" />
+      <ComponentRef Id="PublicSupport" />
+      <ComponentRef Id="PublicReadme" />
+      <ComponentRef Id="PublicThirdPartyNotices" />
+      <ComponentRef Id="PublicSBOM" />
     </Feature>
   </Package>
 </Wix>

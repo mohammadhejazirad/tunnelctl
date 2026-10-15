@@ -2,7 +2,7 @@ name: Packaging validation
 on:
   pull_request:
   push:
-    branches: ['**']
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -27,11 +27,11 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
       EXACT_TAG: ${{ inputs.exact_tag || false }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Install hash-pinned packaging tools
@@ -56,7 +56,7 @@ jobs:
           TUNNELCTL_PRIVATE_TEST_BIN="$RUNNER_TEMP/private-test" TUNNELCTL_TEST_BIN="$RUNNER_TEMP/installed/tunnelctl" TUNNELCTL_TEST_CORE="$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box" go test -count=1 ./test/integration
           TUNNELCTL_TEST_APPIMAGE="$PWD/dist/package-work/assets/tunnelctl_${RELEASE_TAG#v}_linux_amd64.AppImage" TUNNELCTL_RELEASE_TAG="$RELEASE_TAG" go test -count=1 -run TestAppImage ./test/integration
           bash packaging/appimage/test.sh dist/package-work/assets "$RELEASE_TAG" "$RUNNER_TEMP/core/sing-box-1.14.3-linux-amd64/sing-box"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-base
           path: dist/package-work/assets/
@@ -75,10 +75,10 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
       PACKAGE_ARCH: ${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages-base
           path: assets
@@ -126,13 +126,13 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
       PACKAGE_ARCH: ${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages-base
           path: assets
@@ -142,7 +142,7 @@ jobs:
           xcodebuild -version
           bash packaging/macos/build.sh assets "$RELEASE_TAG" "$PACKAGE_ARCH"
           bash packaging/macos/test.sh assets "$RELEASE_TAG" "$PACKAGE_ARCH"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-macos-${{ matrix.arch }}
           path: assets/*.pkg
@@ -154,13 +154,13 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages-base
           path: assets
@@ -170,7 +170,7 @@ jobs:
           dotnet --info
           ./packaging/windows/build.ps1 -Assets assets -Tag $env:RELEASE_TAG
           ./packaging/windows/test.ps1 -Assets assets -Tag $env:RELEASE_TAG
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-windows-amd64
           path: assets/*.msi
@@ -182,13 +182,13 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || 'v0.2.0-rc.1' }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: packages-*
           merge-multiple: true
@@ -198,7 +198,7 @@ jobs:
           go run ./cmd/packaging --mode finalize --tag "$RELEASE_TAG" --out assets
           go run ./cmd/packaging --mode verify-assets --tag "$RELEASE_TAG" --out assets
           bash packaging/test-archives.sh assets "$RELEASE_TAG"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
           path: assets/

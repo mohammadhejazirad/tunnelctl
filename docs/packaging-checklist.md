@@ -19,9 +19,13 @@ This is evidence, not a claim that remote CI or untested operating systems passe
   as an ordinary user; its resulting package passed install/help/version/removal.
 - [x] Explicit per-file archive/package destinations and modes; no flattened
   globs or private inputs. Native content gates check directory/document modes.
-- [x] Root-protected macOS payload and trusted script PATH; native execution pending.
+- [x] Root-protected macOS payload and trusted script PATH; remote amd64/arm64
+  install/reinstall/collision/removal gates passed on 2026-10-14.
 - [x] Document install/update/removal, signing and remaining evidence.
-- [ ] Run remote GitHub dry-run and native Windows/macOS/ARM installation gates.
+- [x] Remote GitHub packaging reached and passed Linux amd64/arm64 plus macOS
+  amd64/arm64 native gates on 2026-10-14.
+- [ ] Rerun the Windows MSI gate and aggregate after the WiX multi-file auto-GUID
+  fix; the previous run stopped at WIX0367 before installer lifecycle testing.
 - [ ] FUSE-mounted AppImage runtime: /dev/fuse absent here; stable extraction passed.
 - [ ] Prior public installer upgrade: none available (synthetic MSI fixture in CI).
 - [ ] Signing/notarization: no certificates, stages intentionally not claimed enabled.
@@ -32,8 +36,8 @@ exclude documentation (test-only tunnelctl-scoped inclusion checks full contents
 secondary package-manager ownership queries must not erase the true owner;
 Fedora merged sbin alias; apk non-aborting script collisions (private backup/warning);
 AppImage transient parent signal semantics (sessions explicitly refused, stable
-extraction real proxy/signals/crash/detached tests passed). Finalize on incomplete
-local set correctly refuses missing macOS pkg, not a successful full dry-run.
+extraction real proxy/signals/crash/detached tests passed); WiX auto-GUID components
+must own one file each. Finalize on an incomplete set correctly refuses publication.
 Private file is ignored, untracked and absent from inspected history; never read.
 
 No public version is selected here. The existing v0.2.0-rc.1 candidate is used only
