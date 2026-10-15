@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 - 2026-10-15
+
+- Add clipboard-first import to the terminal UI, including automatic clipboard
+  detection and a hidden manual-paste fallback when clipboard access is unavailable.
+- Import individual `ss://`, `vless://`, `vmess://` and `trojan://` links, plus
+  multiline/Base64 feeds and HTTPS subscription URLs.
+- Support TCP, WebSocket, gRPC, HTTP and HTTP Upgrade transports, including TLS
+  and Reality configuration with unsafe TLS verification bypass rejected.
+- Upgrade persistent storage to schema 4 while preserving an exact private
+  schema-3 backup during migration.
+- Validate Shadowsocks, VLESS, VMess and Trojan with the pinned sing-box 1.14.3
+  core, and ship installable packages for Linux, macOS and Windows.
+
 ## Unreleased packaging increment
 
 - GoReleaser 2.18.3 / embedded nFPM 2.47.0: five CGO-free archives and Linux
