@@ -70,6 +70,10 @@ moves the old file intact into root-private
 removal preserves the backup. Stop sessions before update/removal; do not mix
 installation methods at one destination.
 
+For TUI clipboard import (`v`), install `wl-clipboard` on Wayland or `xclip`/`xsel`
+on X11. Manual hidden paste (`Profiles` then `i`) remains available without a
+helper. Clipboard content is read only after the explicit `v` action.
+
 The generated PKGBUILD references the exact tarball and SHA-256. Save it as
 PKGBUILD in a new owned build directory, run makepkg as an ordinary Arch user,
 then install with pacman. It is not an AUR submission. Arch ARM64 remains an

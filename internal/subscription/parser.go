@@ -62,9 +62,9 @@ func Parse(b []byte) ([]domain.Profile, error) {
 		if e != nil {
 			var de *domain.Error
 			if errors.As(e, &de) && de.Code == 3 {
-				return nil, domain.Fail(3, "Subscription contains an unsupported profile capability.", "Only the documented Shadowsocks/TCP combinations are accepted; the previous snapshot is preserved.")
+				return nil, domain.Fail(3, "Subscription contains an unsupported profile capability.", "Use documented ss, vless, vmess or trojan options; the previous snapshot is preserved.")
 			}
-			return nil, domain.Fail(2, "Subscription contains an invalid or unsupported share link.", "Only nonempty lists of supported Shadowsocks links are accepted; the previous snapshot is preserved.")
+			return nil, domain.Fail(2, "Subscription contains an invalid or unsupported share link.", "Use nonempty lists of supported ss, vless, vmess or trojan links; the previous snapshot is preserved.")
 		}
 		key := p.Identity()
 		if !identities[key] {
@@ -78,5 +78,5 @@ func Parse(b []byte) ([]domain.Profile, error) {
 	return out, nil
 }
 func parseError() error {
-	return domain.Fail(2, "The subscription is empty, malformed or exceeds its limits.", "Use UTF-8 newline-separated Shadowsocks links or a recognized Base64 envelope; the last good snapshot is preserved.")
+	return domain.Fail(2, "The subscription is empty, malformed or exceeds its limits.", "Use UTF-8 newline-separated supported share links or a recognized Base64 envelope; the last good snapshot is preserved.")
 }

@@ -1,8 +1,9 @@
 # Transactional subscriptions
 
-Formats: UTF-8 newline Shadowsocks SIP002 links; the same payload in strict standard
-or URL-safe Base64, padded/unpadded. No plugins, other protocols, JSON/YAML core
-configs or legacy whole-link encoding. One malformed line rejects the entire update.
+Formats: UTF-8 newline `ss://`, `vless://`, `vmess://` and `trojan://` links; the
+same payload in strict standard or URL-safe Base64, padded/unpadded. No plugins,
+insecure TLS bypass, arbitrary JSON/YAML core configs or legacy whole-link
+Shadowsocks encoding. One malformed line rejects the entire update.
 
 Limits: 5 MiB wire, 10 MiB expanded/decoded, 10,000 nonempty links (duplicates count),
 64 KiB per link, 20-second deadline, 3 same-origin HTTPS redirects, bounded headers

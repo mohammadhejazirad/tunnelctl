@@ -210,7 +210,7 @@ func (s *Store) Load() (domain.Settings, error) {
 	if e = DecodeStrict(f, MaxStoreBytes, &v); e != nil {
 		return v, corrupt()
 	}
-	if v.SchemaVersion != domain.SchemaVersion && v.SchemaVersion != 1 && v.SchemaVersion != 2 {
+	if v.SchemaVersion != domain.SchemaVersion && v.SchemaVersion != 1 && v.SchemaVersion != 2 && v.SchemaVersion != 3 {
 		return v, domain.Fail(3, "The storage schema is unsupported.", "Use a compatible application; no automatic destructive migration is performed.")
 	}
 	if v.SchemaVersion == 1 && len(v.Subscriptions) != 0 {

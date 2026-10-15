@@ -9,7 +9,8 @@ rejected, and the first import becomes selected. Imported state remains distinct
 from successful connectivity.
 
 Import requires exactly one of `--file PATH` or `--stdin`. Files must be private
-regular files owned by the current UID. Show always redacts credentials, including
+regular files owned by the current UID. Accepted links are SS, VLESS, VMess and
+Trojan using the documented transport/TLS subset. Show always redacts credentials, including
 when `--redacted=false` is passed: secret export is not available.
 
 Global arguments: `--data-dir`, `--core`, `--json`, `--timeout`, `--plain`,
@@ -53,6 +54,8 @@ subscriptions.md for transaction, identity, source-removal and active-session ru
 TUI confirmation only authorizes the same shared use cases, not extra capabilities.
 No-argument interactive startup opens the same menu; redirected/noninteractive
 startup returns help or a JSON usage result without reading stdin. See tui.md.
+In the TUI, `v` explicitly reads and auto-detects clipboard content; it can add a
+single profile, a copied feed or an HTTPS subscription URL without echoing secrets.
 Completion supports bash/zsh/fish/powershell and never installs shell changes.
 
 `profile check PROFILE` validates a generated configuration with the approved

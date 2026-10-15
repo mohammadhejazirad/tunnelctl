@@ -131,7 +131,7 @@ func (a *Adapter) Version(ctx context.Context) (string, error) {
 	return Version, nil
 }
 func (a *Adapter) Capabilities() core.Capabilities {
-	return core.Capabilities{Protocol: "shadowsocks", Methods: []string{"aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"}, Mode: "proxy", Transport: "tcp", Statistics: false}
+	return core.Capabilities{Protocols: []string{"shadowsocks", "vless", "vmess", "trojan"}, Methods: []string{"tcp", "ws", "grpc", "http", "httpupgrade", "tls", "reality"}, Mode: "proxy", Transport: "multiple", Statistics: false}
 }
 
 type config struct {
@@ -155,13 +155,42 @@ type inbound struct {
 	Users  []user `json:"users,omitempty"`
 }
 type outbound struct {
-	Type     string `json:"type"`
-	Tag      string `json:"tag"`
-	Server   string `json:"server"`
-	Port     uint16 `json:"server_port"`
-	Method   string `json:"method"`
-	Password string `json:"password"`
-	Network  string `json:"network"`
+	Type      string            `json:"type"`
+	Tag       string            `json:"tag"`
+	Server    string            `json:"server"`
+	Port      uint16            `json:"server_port"`
+	Method    string            `json:"method,omitempty"`
+	Password  string            `json:"password,omitempty"`
+	UUID      string            `json:"uuid,omitempty"`
+	Flow      string            `json:"flow,omitempty"`
+	Security  string            `json:"security,omitempty"`
+	AlterID   int               `json:"alter_id,omitempty"`
+	Network   string            `json:"network,omitempty"`
+	TLS       *tlsOptions       `json:"tls,omitempty"`
+	Transport *transportOptions `json:"transport,omitempty"`
+}
+type tlsOptions struct {
+	Enabled    bool            `json:"enabled"`
+	ServerName string          `json:"server_name,omitempty"`
+	ALPN       []string        `json:"alpn,omitempty"`
+	UTLS       *utlsOptions    `json:"utls,omitempty"`
+	Reality    *realityOptions `json:"reality,omitempty"`
+}
+type utlsOptions struct {
+	Enabled     bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint"`
+}
+type realityOptions struct {
+	Enabled   bool   `json:"enabled"`
+	PublicKey string `json:"public_key"`
+	ShortID   string `json:"short_id,omitempty"`
+}
+type transportOptions struct {
+	Type        string            `json:"type"`
+	Host        string            `json:"host,omitempty"`
+	Path        string            `json:"path,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	ServiceName string            `json:"service_name,omitempty"`
 }
 type route struct {
 	Final string `json:"final"`
@@ -178,7 +207,42 @@ func (a *Adapter) Render(p domain.Profile, l core.Listener) ([]byte, error) {
 	if l.Username != "" {
 		in.Users = []user{{l.Username, l.Password}}
 	}
-	return json.Marshal(config{logOptions{true}, []inbound{in}, []outbound{{"shadowsocks", "upstream", p.Host, p.Port, p.Method, p.Password, "tcp"}}, route{"upstream"}})
+	out := outbound{Type: p.Protocol, Tag: "upstream", Server: p.Host, Port: p.Port, Network: "tcp"}
+	switch p.Protocol {
+	case "shadowsocks":
+		out.Method = p.Method
+		out.Password = p.Password
+	case "vless":
+		out.UUID = p.Password
+		out.Flow = p.Flow
+	case "vmess":
+		out.UUID = p.Password
+		out.Security = p.Method
+		out.AlterID = p.AlterID
+	case "trojan":
+		out.Password = p.Password
+	}
+	if p.Security == "tls" || p.Security == "reality" {
+		out.TLS = &tlsOptions{Enabled: true, ServerName: p.ServerName, ALPN: append([]string(nil), p.ALPN...)}
+		if p.Fingerprint != "" {
+			out.TLS.UTLS = &utlsOptions{Enabled: true, Fingerprint: p.Fingerprint}
+		}
+		if p.Security == "reality" {
+			out.TLS.Reality = &realityOptions{Enabled: true, PublicKey: p.PublicKey, ShortID: p.ShortID}
+		}
+	}
+	if p.Transport != "" && p.Transport != "tcp" {
+		out.Transport = &transportOptions{Type: p.Transport, Path: p.Path, ServiceName: p.ServiceName}
+		switch p.Transport {
+		case "ws":
+			if p.HostHeader != "" {
+				out.Transport.Headers = map[string]string{"Host": p.HostHeader}
+			}
+		case "http", "httpupgrade":
+			out.Transport.Host = p.HostHeader
+		}
+	}
+	return json.Marshal(config{logOptions{true}, []inbound{in}, []outbound{out}, route{"upstream"}})
 }
 func (a *Adapter) Validate(ctx context.Context, f *os.File) error {
 	if e := checked(ctx, a.command(f, "check", "-c", "/proc/self/fd/3")); e != nil {

@@ -4,7 +4,7 @@
     "name": "tunnelctl",
     "version": "0.2.0-dev",
     "release_candidate": "v0.2.0-rc.1",
-    "storage_schema": 3,
+    "storage_schema": 4,
     "output_schema": 1,
     "release_status": "local dry-run; no public tag/release created"
   },
@@ -208,12 +208,23 @@
       ],
       "approved_capabilities": {
         "mode": "proxy",
-        "protocol": "shadowsocks",
-        "transport": "tcp",
-        "methods": [
-          "aes-128-gcm",
-          "aes-256-gcm",
-          "chacha20-ietf-poly1305"
+        "protocols": [
+          "shadowsocks",
+          "vless",
+          "vmess",
+          "trojan"
+        ],
+        "transports": [
+          "tcp",
+          "ws",
+          "grpc",
+          "http",
+          "httpupgrade"
+        ],
+        "security": [
+          "native",
+          "tls",
+          "reality"
         ],
         "plugins": false,
         "tun": false,
@@ -261,8 +272,8 @@
   ],
   "verification": {
     "unit_and_lifecycle": "passed",
-    "real_core_config_check": "passed for IPv4, IPv6 literals and hostname upstream configs",
-    "real_proxy_requests": "passed for all three AEAD methods; HTTP, SOCKS5 hostname and TLS-verified HTTP CONNECT",
+    "real_core_config_check": "passed for SS, VLESS, VMess and Trojan across the approved transport/TLS subset including Reality schema validation",
+    "real_proxy_requests": "passed for all three Shadowsocks AEAD methods plus controlled VLESS, VMess and Trojan; HTTP, SOCKS5 hostname and TLS-verified HTTP CONNECT",
     "fault_tests": "passed: port conflict, concurrent session, wrong credentials, duration, SIGINT/SIGTERM/SIGHUP, core crash, supervisor SIGKILL, cleanup conflict and forced-stop timeout",
     "fuzz": "passed, 10-second bounded parser campaign",
     "vet": "passed",
@@ -271,13 +282,13 @@
     "packet_capture_and_performance": "not measured",
     "native_macos_windows_arm64": "not run",
     "subscriptions": "passed: trusted local HTTPS, HMAC previews, SSRF/TLS/redirect/limits/cancel; staged rename/removal and filesystem commit failure preserve data; real CLI-to-proxy",
-    "tui": "passed: compact/resize model checks and native Linux PTY rendering/navigation/quit smoke",
+    "tui": "passed: compact/resize model checks, explicit clipboard detection/manual fallback and native Linux PTY rendering/navigation/quit smoke",
     "vulnerability_scan": "govulncheck v1.9.0: no vulnerabilities found 2026-10-14 (not a guarantee)",
     "release": "passed: five persistence-delivery local candidate archives, checksums/metadata/manual installation lifecycle with populated preferences/sources/profiles retained (0.382s); no public release",
     "github_actions": "configured and commit-pinned; not executed remotely in this turn",
     "upgrade": "passed: actual 0.1.0 baseline executable, exact schema-1 backup and stable profile identity/selection; legacy refusal code 2 preserves newer data; upgraded real request",
     "privilege": "passed: set-ID refusal and verified unprivileged real core; file capabilities refused, no elevated execution",
-    "durable_storage": "schema 3: subprocess SIGKILL at four atomic boundaries, RLIMIT_FSIZE write failure, 50 concurrent commits, XDG/CWD isolation, shared CLI/TUI Save/discard/conflict, schema-1/2 exact backups, actual schema-2 executable upgrade and no active-session mutation passed; physical reboot/power loss and native multi-UID/cross-OS storage not certified"
+    "durable_storage": "schema 4: subprocess SIGKILL at four atomic boundaries, RLIMIT_FSIZE write failure, 50 concurrent commits, XDG/CWD isolation, shared CLI/TUI Save/discard/conflict, schema-1/2/3 exact backups, actual schema-2 executable upgrade and no active-session mutation passed; physical reboot/power loss and native multi-UID/cross-OS storage not certified"
   },
   "race": {
     "go": "1.27.2",

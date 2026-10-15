@@ -52,3 +52,29 @@ func TestSchemaOneMigrationAndDowngradeBoundary(t *testing.T) {
 		t.Fatal("incompatible downgrade damaged data")
 	}
 }
+
+func TestSchemaThreeMigrationCreatesExactBackup(t *testing.T) {
+	root := t.TempDir()
+	os.Chmod(root, 0700)
+	s, e := New(root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	path := filepath.Join(s.Paths.Config, "profiles.json")
+	old := domain.Settings{SchemaVersion: 3, Profiles: []domain.Profile{}, Preferences: domain.DefaultPreferences(), Revision: 7}
+	if e = AtomicJSON(path, old); e != nil {
+		t.Fatal(e)
+	}
+	before, _ := os.ReadFile(path)
+	if e = s.Update(func(*domain.Settings) error { return nil }); e != nil {
+		t.Fatal(e)
+	}
+	v, e := s.Load()
+	if e != nil || v.SchemaVersion != domain.SchemaVersion || v.Revision != 8 {
+		t.Fatal("schema-3 migration failed", e)
+	}
+	backup, e := os.ReadFile(filepath.Join(s.Paths.Config, "profiles.schema3.backup.json"))
+	if e != nil || string(backup) != string(before) {
+		t.Fatal("schema-3 backup differs from source", e)
+	}
+}

@@ -106,7 +106,7 @@ func TestUpgradeFromSchemaTwoExecutable(t *testing.T) {
 		t.Fatal(e)
 	}
 	var next domain.Settings
-	if json.Unmarshal(after, &next) != nil || next.SchemaVersion != 3 || next.Selected != old.Selected || next.Profiles[0].Password != old.Profiles[0].Password || next.Subscriptions[0].URL != old.Subscriptions[0].URL {
+	if json.Unmarshal(after, &next) != nil || next.SchemaVersion != domain.SchemaVersion || next.Selected != old.Selected || next.Profiles[0].Password != old.Profiles[0].Password || next.Subscriptions[0].URL != old.Subscriptions[0].URL {
 		t.Fatal("actual upgrade lost private data")
 	}
 	backup, e := os.ReadFile(filepath.Join(current.root, "config", "profiles.schema2.backup.json"))

@@ -26,12 +26,14 @@ The command path must be absolute and the executable not group/world writable.
 Preserve the upstream license. `core verify` checks executable digest/version;
 doctor additionally checks private storage. Neither connects to an upstream.
 
-The adapter was checked against the exact-tag `option/shadowsocks.go`,
-`option/simple.go`, `option/route.go`, `cmd/sing-box/cmd_check.go` and dial/DNS
-documentation, and its emitted configs were accepted by the real core. It uses
+The adapter was checked against the exact-tag Shadowsocks, VLESS, VMess, Trojan,
+TLS/Reality and V2Ray transport option sources plus `option/simple.go`,
+`option/route.go`, `cmd/sing-box/cmd_check.go` and dial/DNS documentation. Its
+emitted configs were accepted by the real core; SS, VLESS, VMess and Trojan have
+controlled real-request tests. It uses
 `check -c PATH`, `run -c PATH` and `version`. Core build tags/revision are in
-compatibility.json. The archive includes libcronet.so; the Phase 1 proxy methods
-were tested without calling Cronet features. No other core capability is certified.
+compatibility.json. The archive includes libcronet.so; tested proxy paths do not
+call Cronet features. No unlisted protocol/transport capability is certified.
 
 No runtime latest selection, automatic install or update is implemented. New core
 versions require schema/API review, integrity records and real acceptance tests,

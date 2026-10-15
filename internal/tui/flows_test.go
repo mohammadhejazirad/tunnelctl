@@ -121,6 +121,36 @@ func TestMenuHiddenImportProfileFlowsAndSettings(t *testing.T) {
 		t.Fatal("confirmed removal failed")
 	}
 }
+
+func TestClipboardQuickImportFromHome(t *testing.T) {
+	m := testModel(t)
+	dir := t.TempDir()
+	tool := filepath.Join(dir, "wl-paste")
+	link := "vless://11111111-2222-4333-8444-555555555555@example.com:443?encryption=none&security=tls&sni=example.com#clipboard"
+	if e := os.WriteFile(tool, []byte("#!/bin/sh\nprintf '%s' '"+link+"'\n"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("WAYLAND_DISPLAY", "synthetic")
+	m.page = overview
+	m, cmd := key(m, "v")
+	m = finish(t, m, cmd)
+	if len(m.profiles) != 1 || m.profiles[0].Protocol != "vless" || !strings.Contains(m.message, "Success") {
+		t.Fatal("clipboard quick import failed")
+	}
+}
+
+func TestClipboardFallbackOpensHiddenPaste(t *testing.T) {
+	m := testModel(t)
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("WAYLAND_DISPLAY", "synthetic")
+	m.page = overview
+	m, cmd := key(m, "v")
+	m = finish(t, m, cmd)
+	if m.form == nil || m.form.action != "import-link" || !m.form.fields[0].hidden || !strings.Contains(m.message, "Ctrl+Shift+V") {
+		t.Fatal("missing safe manual clipboard fallback")
+	}
+}
 func TestSubscriptionMenuRealTLSPreviewCommitCancelAndRemove(t *testing.T) {
 	m := testModel(t)
 	blocked := make(chan struct{})

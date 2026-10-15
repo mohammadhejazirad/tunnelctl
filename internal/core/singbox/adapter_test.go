@@ -49,9 +49,14 @@ func TestRealConfigValidation(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer a.Close()
-	for _, host := range []string{"127.0.0.1", "::1", "example.com"} {
-		p := profile()
-		p.Host = host
+	profiles := []domain.Profile{
+		profile(),
+		{Protocol: "vless", Host: "example.com", Port: 443, Method: "none", Password: "11111111-2222-4333-8444-555555555555", Transport: "ws", Security: "tls", ServerName: "example.com", HostHeader: "cdn.example.com", Path: "/socket", Fingerprint: "chrome"},
+		{Protocol: "vless", Host: "example.com", Port: 443, Method: "none", Password: "11111111-2222-4333-8444-555555555555", Transport: "grpc", Security: "reality", ServerName: "example.com", ServiceName: "edge", Fingerprint: "chrome", PublicKey: "7E7FjYek1uZt0Wj8KpQDz-yKS0PjWRqRR6B2s8Lh_GU", ShortID: "abcd"},
+		{Protocol: "vmess", Host: "example.com", Port: 443, Method: "auto", Password: "11111111-2222-4333-8444-555555555555", Transport: "ws", Security: "tls", ServerName: "example.com", Path: "/vmess"},
+		{Protocol: "trojan", Host: "example.com", Port: 443, Method: "tls", Password: "synthetic", Transport: "tcp", Security: "tls", ServerName: "example.com"},
+	}
+	for _, p := range profiles {
 		b, e := a.Render(p, core.Listener{Port: 2080})
 		if e != nil {
 			t.Fatal(e)
@@ -69,7 +74,7 @@ func TestRealConfigValidation(t *testing.T) {
 		cancel()
 		f.Close()
 		if e != nil {
-			t.Fatalf("core rejected config for %s: %v", host, e)
+			t.Fatalf("core rejected config for %s/%s: %v", p.Protocol, p.Transport, e)
 		}
 	}
 }

@@ -251,7 +251,7 @@ func TestSchemaTwoMigrationPreservesPrivateData(t *testing.T) {
 		t.Fatal(e)
 	}
 	v, e = s.Load()
-	if e != nil || v.SchemaVersion != 3 || v.Revision != 10 || v.Selected != "11111111111111111111111111111111" || v.Profiles[0].Password != "synthetic-secret" || v.Subscriptions[0].URL != "https://example.invalid/feed?token=synthetic" {
+	if e != nil || v.SchemaVersion != domain.SchemaVersion || v.Revision != 10 || v.Selected != "11111111111111111111111111111111" || v.Profiles[0].Password != "synthetic-secret" || v.Subscriptions[0].URL != "https://example.invalid/feed?token=synthetic" {
 		t.Fatal("migration lost private data", e)
 	}
 	backup := filepath.Join(s.Paths.Config, "profiles.schema2.backup.json")

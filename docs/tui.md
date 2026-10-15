@@ -7,7 +7,7 @@ Redirected input/output, `--json`, `--non-interactive` and `TERM=dumb` never ent
 a blocking menu: no-argument startup returns help (or a JSON usage result), while
 explicit `tui` returns an unsupported-capability error. Direct CLI remains independent.
 
-Main menu: Overview, Connect, Profiles, Subscriptions, Sessions, Logs, Diagnostics,
+Main menu: Import from clipboard, Connect, Profiles, Subscriptions, Sessions, Logs, Diagnostics,
 Settings, Help, Exit. TUN, service management and Xray are unavailable, not active
 dummy controls. Bubble Tea operations call the same application services as CLI;
 network operations run asynchronously, not from terminal rendering.
@@ -15,6 +15,8 @@ network operations run asynchronously, not from terminal rendering.
 ## Navigation
 
 - Arrows or j/k move; Enter opens/selects; Esc returns to the main menu.
+- `v` reads the system clipboard and auto-detects a share link, feed or HTTPS
+  subscription URL. Clipboard access occurs only after this explicit action.
 - `?` opens Help; `q` requests exit; `s` opens Connect; `x` confirms stop.
 - 1–4 and Tab are shortcuts for Overview, Profiles, Subscriptions and Logs.
 - Forms: Enter advances/saves, Tab/up/down chooses fields, Ctrl+U clears the field,
@@ -29,8 +31,14 @@ codes. Untrusted ANSI/OSC, bidi and control sequences are removed from names/tex
 
 ## Profiles
 
-Open Profiles, use `i` for hidden link entry or `f` for an owned 0600 regular
-input file. Supported links are precisely the CLI's Shadowsocks SIP002/TCP subset.
+Press `v` from Home, the main menu or Profiles for the simplest import. On Linux,
+install `wl-clipboard`, `xclip` or `xsel`; WSL can use `powershell.exe`. The app
+detects `ss://`, `vless://`, `vmess://`, `trojan://`, Base64/newline feeds and HTTPS
+subscription URLs. HTTPS sources are stored but not downloaded until Preview.
+
+Open Profiles and use `i` for hidden manual link entry or `f` for an owned 0600 regular
+input file. Supported transports are TCP, WebSocket, gRPC, HTTP and HTTP Upgrade;
+TLS verification is never disabled and Reality requires its complete parameters.
 Hidden input is never rendered, including pasted text. Import does not connect.
 Use `/` to search names; Enter opens redacted details and actions: Select,
 Validate generated config with approved core, Rename, Remove. `r`/`d` are list

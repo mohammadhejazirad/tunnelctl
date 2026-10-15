@@ -44,7 +44,7 @@ func (s *Service) Import(r io.Reader) (domain.PublicProfile, error) {
 			return domain.Fail(2, "Profile count limit exceeded.", "Use a separate private profile store.")
 		}
 		for _, old := range v.Profiles {
-			if old.Host == p.Host && old.Port == p.Port && old.Method == p.Method && old.Password == p.Password {
+			if old.Identity() == p.Identity() {
 				return domain.Fail(6, "This connection profile is already stored.", "Use profile list to find the existing profile ID.")
 			}
 		}

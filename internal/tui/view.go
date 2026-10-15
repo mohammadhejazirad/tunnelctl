@@ -24,7 +24,7 @@ func (m model) View() tea.View {
 	if m.color {
 		title = title.Bold(true).Foreground(lipgloss.Color("6"))
 	}
-	lines := []string{title.Render("tunnelctl | terminal proxy"), ""}
+	lines := []string{title.Render("tunnelctl | simple proxy manager"), ""}
 	budget := max(1, height-9)
 	// All dynamic text is sanitized even if a future service forgets to do so.
 	text := func(s string) { lines = append(lines, domain.SafeName(s)) }
@@ -107,12 +107,17 @@ func (m model) View() tea.View {
 			text("Proxy only. Host DNS, routes and firewall unchanged.")
 			text("Detached sessions survive menu/terminal exit. x: stop with confirmation.")
 			if m.page == overview {
-				text("Enter: connection options")
+				if len(m.profiles) == 0 {
+					text("Start here: copy a share/subscription link, then press Enter or v.")
+					text("Detected automatically: ss, vless, vmess, trojan or HTTPS subscription.")
+				} else {
+					text("Enter: connection options | v: import from clipboard")
+				}
 			} else {
 				text("Enter: stop with confirmation")
 			}
 		case profilesPage:
-			text("Profiles | /: search | i: hidden import | f: private file")
+			text("Profiles | v: clipboard | i: manual paste | f: private file")
 			text("Enter: details | r: rename | d: remove | Filter: " + m.filter)
 			items := []string{}
 			for _, p := range m.visibleProfiles() {
@@ -120,7 +125,14 @@ func (m model) View() tea.View {
 				if p.Selected {
 					selected = " [selected]"
 				}
-				items = append(items, p.Name+selected+" | "+p.Method)
+				detail := strings.ToUpper(p.Protocol)
+				if p.Transport != "" {
+					detail += " / " + strings.ToUpper(p.Transport)
+				}
+				if p.Security != "" && p.Security != "none" {
+					detail += " / " + strings.ToUpper(p.Security)
+				}
+				items = append(items, p.Name+selected+" | "+detail)
 			}
 			options(items)
 		case sourcesPage:
@@ -133,7 +145,15 @@ func (m model) View() tea.View {
 			options(items)
 		case detailsPage:
 			text("Profile: " + m.profile.Name)
-			text(fmt.Sprintf("%s / TCP / %s | Credentials: [REDACTED]", m.profile.Protocol, m.profile.Method))
+			transport := m.profile.Transport
+			if transport == "" {
+				transport = "tcp"
+			}
+			security := m.profile.Security
+			if security == "" {
+				security = "native"
+			}
+			text(fmt.Sprintf("%s / %s / %s | Credentials: [REDACTED]", m.profile.Protocol, transport, security))
 			text(fmt.Sprintf("Endpoint: %s:%d", m.profile.Host, m.profile.Port))
 			text("Capability: supported normalized profile; core/config check available below.")
 			text(fmt.Sprintf("Favorite: %t | Tags: %s", m.profile.Favorite, strings.Join(m.profile.Tags, ", ")))
@@ -180,14 +200,14 @@ func (m model) View() tea.View {
 			if m.diagnostic != nil {
 				text("Platform: " + m.diagnostic.Platform + " | Core: " + m.diagnostic.CoreVersion)
 				text("Storage: " + m.diagnostic.Storage)
-				text("Capabilities: Shadowsocks / TCP / Proxy; statistics Unavailable")
+				text("Capabilities: SS, VLESS, VMess, Trojan / Proxy; statistics Unavailable")
 			} else {
 				text("No successful diagnostic result yet.")
 			}
 			text("No unsolicited network test. Use Connect to explicitly probe.")
-			text("TUN, Xray and service management: Unavailable")
+			text("TUN and service management: Unavailable")
 		case helpPage:
-			for _, line := range []string{"Help", "Arrows/j/k: move | Enter: open/confirm | Esc: cancel/back", "Profiles: i hidden import, f file, / search, r rename, d remove", "Subscriptions: a add, p/u preview, r rename, d remove", "s: connection options | x: confirm stop | q: exit options", "While loading: Esc/Ctrl+C cancel; q waits for cleanup then exit options.", "Forms: Enter next/save, Tab/arrows fields, Ctrl+U clear, Esc discard.", "All connections started here are detached; no silent stop on exit.", "Supported: Shadowsocks SIP002 / TCP only; TUN/UDP unavailable.", "TLS stays verified. Secrets and raw core logs are never displayed.", "CLI works independently: tunnelctl --help, status, stop, doctor."} {
+			for _, line := range []string{"Help", "v: read clipboard and auto-detect a profile, feed or HTTPS subscription", "Arrows/j/k: move | Enter: open/confirm | Esc: cancel/back", "Profiles: i manual hidden paste, f file, / search, r rename, d remove", "Subscriptions: a add manually, p/u preview, r rename, d remove", "s: connection options | x: confirm stop | q: exit options", "While loading: Esc/Ctrl+C cancel; q waits for cleanup then exit options.", "Forms: Enter next/save, Tab/arrows fields, Ctrl+U clear, Esc discard.", "Supported: SS, VLESS, VMess and Trojan; TCP/WS/gRPC/HTTP Upgrade.", "TLS verification stays enabled. Secrets and raw core logs are never displayed.", "CLI works independently: tunnelctl --help, status, stop, doctor."} {
 				text(line)
 			}
 		}
@@ -220,7 +240,7 @@ func (m model) View() tea.View {
 			status = append(append(status[:maxStatus-2], "... resize for full message ..."), status[len(status)-1])
 		}
 	}
-	footer := "Enter open | Esc back | ? help | q exit"
+	footer := "v import | Enter open | Esc back | ? help | q exit"
 	if width < 40 {
 		footer = "Enter Esc ? q"
 	}

@@ -13,7 +13,7 @@ type Listener struct {
 	Password string
 }
 type Capabilities struct {
-	Protocol   string   `json:"protocol"`
+	Protocols  []string `json:"protocols,omitempty"`
 	Methods    []string `json:"methods"`
 	Mode       string   `json:"mode"`
 	Transport  string   `json:"transport"`

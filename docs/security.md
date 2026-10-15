@@ -3,9 +3,10 @@
 Profiles, stdin, files and share-link fields are untrusted. One URI is bounded at
 64 KiB, decoded credentials at 8 KiB, passwords at 4096 UTF-8 bytes, names at 256
 bytes, storage at 10 MiB and 10,000 profiles. Scheme, endpoint, cipher and fields
-are validated; plugins, all query parameters, paths beyond an optional slash,
-legacy whole-link Base64 and other protocols are rejected. Standard/URL-safe,
-padded/unpadded strict Base64 userinfo and percent-encoded credentials are supported.
+are validated. Supported inputs are SS, VLESS, VMess and Trojan with an explicit
+bounded subset of TCP/WebSocket/gRPC/HTTP transports and TLS/Reality options.
+Plugins, insecure TLS bypass and unknown extensions are rejected. Standard/URL-safe,
+padded/unpadded strict Base64 and percent-encoded credentials are supported.
 IPv6 literals are accepted; scoped addresses, ambiguous structural data, invalid
 hostname labels and unsupported security/transport extensions are refused.
 
@@ -51,7 +52,7 @@ This implementation has not had an independent security audit. Power loss,
 filesystem faults at every transaction boundary, multiple local users, arbitrary
 hostile IPC clients and packet-level IPv6/DNS leak scenarios are not certified.
 
-Subscription URLs/HTTP validators are private schema-3 data, never public output.
+Subscription URLs/HTTP validators are private schema-4 data, never public output.
 Preview tokens use HMAC with a private random per-source key, not public plaintext
 hashes of password-bearing feeds. Key and validators never enter public metadata.
 HTTPS fetch enforces bounds, certificate verification, origin-limited redirects

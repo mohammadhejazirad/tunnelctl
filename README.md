@@ -11,7 +11,8 @@ No download badge implies assets have already been published.
 
 - Real loopback HTTP/SOCKS5 proxy, foreground or explicit detached supervisor.
 - Duration, owned-process stop, private status and bounded state events.
-- Private link import; profile selection, rename, removal and redacted JSON.
+- Clipboard/manual import for SS, VLESS, VMess and Trojan share links; profile
+  selection, rename, removal and redacted JSON.
 - Durable shared CLI/TUI preferences, tags/favorites and protected migration backups.
 - Transactional HTTPS subscriptions: preview, last-good preservation, stable IDs,
   conditional requests and explicit deletion approval.
@@ -19,11 +20,13 @@ No download badge implies assets have already been published.
 - SemVer metadata, schema migration, native packaging, checksums/module SBOM and
   fully gated automatic tag releases (draft/upload verification before publication).
 
-Only **Shadowsocks SIP002 over TCP**, without plugins, is supported. Methods:
-`aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`. Feeds contain newline links
-or Base64 envelopes, not arbitrary core/Clash JSON/YAML. Import is not connection
-verification. **TUN, UDP, Xray, services, automatic updates and scheduled refresh
-are not implemented.** No fake counters or kill-switch controls exist.
+Supported share links are **Shadowsocks SIP002, VLESS, VMess and Trojan**. The
+sing-box adapter supports TCP plus WebSocket, gRPC, HTTP and HTTP Upgrade where the
+protocol allows them, with verified TLS and Reality. Insecure certificate bypass,
+plugins, XHTTP/KCP/QUIC share transports and arbitrary core/Clash JSON/YAML remain
+rejected. Feeds contain newline links or Base64 envelopes. Import is not connection
+verification. **TUN, UDP, services, automatic updates and scheduled refresh are not
+implemented.** No fake counters or kill-switch controls exist.
 
 Proxy affects only applications explicitly using it. TUN would change host
 networking and requires separate privilege, ownership and recovery gates.
@@ -147,6 +150,10 @@ No local dry-run attestation/signing key is claimed.
 Replace the core path with your protected, verified installation. Place the share
 link in an owned `0600` regular file; never pass secret links in arguments.
 
+For the easiest interactive path, copy one share link or HTTPS subscription URL,
+open `tunnelctl`, then press `v`. The app reads the system clipboard on that explicit
+keypress, detects the content and imports it without displaying credentials.
+
 ```sh
 tunnelctl init
 tunnelctl profile import --file /absolute/private/profile.txt
@@ -239,7 +246,8 @@ tunnelctl completion powershell
 
 No-argument TTY startup opens Main menu; redirected startup returns help/JSON
 guidance immediately. Arrows/j/k and Enter navigate; Esc cancels/returns; `?`
-opens Help. Profiles: `i` hidden link import, `f` private file, `/` search,
+opens Help. Press `v` anywhere in the main UI to read and auto-detect the clipboard.
+Profiles: `i` hidden manual paste, `f` private file, `/` search,
 Enter details/select/config-check, `r` rename, `d` confirmed removal.
 Subscriptions: `a` hidden add, `p/u` preview/update, `r` rename, `d` remove/retain.
 Connect/Settings configure port, duration, authentication and an optional explicit
@@ -257,7 +265,8 @@ Private real samples are **development-only and explicitly opt-in** through a
 separate bounded Go harness. They are never read by ordinary startup/tests/CI,
 packaged, displayed or used as public fixtures. See
 [private test activation, anonymous stages and safety](docs/private-testing.md).
-Unsupported feeds/protocols remain rejected; successful download is not connection.
+Unsupported options and raw core configurations remain rejected; successful
+download or import is not proof of connectivity.
 
 `logs` returns at most 256 **state events from the last session**, not raw core
 logs/counters; `--follow` is unavailable. Use `doctor` and `core verify` for

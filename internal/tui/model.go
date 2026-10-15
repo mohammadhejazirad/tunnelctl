@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"tunnelctl/internal/app"
+	"tunnelctl/internal/clipboard"
 	"tunnelctl/internal/core"
 	"tunnelctl/internal/domain"
 	"tunnelctl/internal/session"
@@ -32,7 +33,7 @@ const (
 	sourceDetailsPage
 )
 
-var menu = []string{"Overview", "Connect", "Profiles", "Subscriptions", "Sessions", "Logs", "Diagnostics", "Settings", "Help", "Exit"}
+var menu = []string{"Import from clipboard", "Connect", "Profiles", "Subscriptions", "Sessions", "Logs", "Diagnostics", "Settings", "Help", "Exit"}
 var menuPages = []int{overview, connectPage, profilesPage, sourcesPage, sessionsPage, logsPage, diagnosticsPage, settingsPage, helpPage}
 
 type model struct {
@@ -89,6 +90,7 @@ type completed struct {
 	probeSession string
 	quit         bool
 	connection   bool
+	manualImport bool
 }
 
 func (m model) load() tea.Msg {
@@ -243,6 +245,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.opCancel = nil
 		canceled := m.canceling
 		m.canceling = false
+		if msg.manualImport && !errors.Is(msg.err, context.Canceled) {
+			m.openForm("import-link", "Clipboard helper unavailable: paste a share link", field{"Share link", "", true, 64 * 1024})
+			m.message = "Press Ctrl+Shift+V to paste, then Enter to import. Install wl-clipboard, xclip or xsel for one-key import."
+			return m, nil
+		}
 		if msg.err != nil {
 			m.message = safeError(msg.err)
 		} else {
@@ -412,11 +419,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			m.page = connectPage
 			m.cursor = 0
+		case "v":
+			return m, m.quickImport()
 		case "x":
 			m.stopConfirmation()
 		case "i":
 			if m.page == profilesPage {
-				m.openForm("import-link", "Import a share link (hidden)", field{"Share link", "", true, 64 * 1024})
+				m.openForm("import-link", "Paste ss, vless, vmess or trojan link (hidden)", field{"Share link", "", true, 64 * 1024})
 			}
 		case "f":
 			if m.page == profilesPage {
@@ -464,12 +473,18 @@ func (m *model) enter() tea.Cmd {
 		if m.cursor == len(menu)-1 {
 			return m.leave()
 		}
+		if m.cursor == 0 {
+			return m.quickImport()
+		}
 		m.page = menuPages[m.cursor]
 		m.cursor = 0
 		if m.page == diagnosticsPage {
 			return m.doctor()
 		}
 	case overview:
+		if len(m.profiles) == 0 {
+			return m.quickImport()
+		}
 		m.page = connectPage
 		m.cursor = 0
 	case profilesPage:
@@ -549,6 +564,28 @@ func (m *model) enter() tea.Cmd {
 		return m.doctor()
 	}
 	return nil
+}
+
+func (m *model) quickImport() tea.Cmd {
+	service := m.service
+	return m.begin("Reading clipboard and detecting content...", func(ctx context.Context) completed {
+		value, e := clipboard.Read(ctx)
+		if e != nil {
+			return completed{err: e, manualImport: true}
+		}
+		result, e := service.QuickImport(value)
+		if e != nil {
+			return completed{err: e}
+		}
+		switch result.Kind {
+		case "subscription":
+			return completed{message: "Subscription added as " + result.Name + "; open Subscriptions and preview it before applying."}
+		case "profiles":
+			return completed{message: fmt.Sprintf("Imported %d profiles from clipboard; skipped %d duplicates.", result.Added, result.Skipped)}
+		default:
+			return completed{message: "Profile imported and selected when it was the first profile."}
+		}
+	})
 }
 func (m model) listenPort() uint16 {
 	if m.port == 0 {

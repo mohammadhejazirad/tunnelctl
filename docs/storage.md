@@ -2,7 +2,7 @@
 
 ## Contract and contents
 
-The supported Linux runtime uses one authoritative **schema-3** snapshot,
+The supported Linux runtime uses one authoritative **schema-4** snapshot,
 `config/profiles.json`, with an independent monotonic revision. CLI and TUI call
 the same application services and writer transaction. Successful import, select,
 rename, metadata, source update/removal or settings Save means the snapshot was
@@ -135,16 +135,17 @@ install -m 0600 -- /absolute/config/tunnelctl/profiles.json /absolute/private/tu
 
 All backups contain secrets, including source tokens. Do not upload them.
 The snapshot's connection model, app version, output schema and core version are
-independent. Schema 1/2 can be read without writing; missing historical preferences
+independent. Schema 1/2/3 can be read without writing; missing historical preferences
 get conservative defaults. The first successful mutation makes an exact original
-`profiles.schema1.backup.json` or `profiles.schema2.backup.json`, synced with private
-permissions **before** committing schema 3. An existing equal backup is reused;
+`profiles.schema1.backup.json`, `profiles.schema2.backup.json` or
+`profiles.schema3.backup.json`, synced with private permissions **before** committing
+schema 4. An existing equal backup is reused;
 a different/insecure backup blocks migration without overwriting either file.
 Failed validation or a canceled draft does not migrate data.
 
 Unknown/newer schema, invalid settings, duplicate JSON fields, invalid references,
 oversized/corrupt JSON and unsafe permissions are errors, never empty-store
-fallbacks. Older strict decoders reject schema 3 (possibly code 2 rather than 3)
+fallbacks. Older strict decoders reject schema 4 (possibly code 2 rather than 3)
 and must not rewrite it. Downgrade requires a compatible verified backup in a
 **separate private data directory**; newer changes cannot be translated back
 automatically. Keep the original damaged/newer file privately before any repair.

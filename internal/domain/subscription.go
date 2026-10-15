@@ -35,7 +35,11 @@ func (s Subscription) Public(count int) PublicSubscription {
 
 // Identity is only used inside private persistence/transactions, never in public output.
 func (p Profile) Identity() string {
-	b, _ := json.Marshal([]any{p.Protocol, p.Host, p.Port, p.Method, p.Password})
+	b, _ := json.Marshal([]any{
+		p.Protocol, p.Host, p.Port, p.Method, p.Password, p.Transport, p.Security,
+		p.ServerName, p.HostHeader, p.Path, p.ServiceName, p.Flow, p.Fingerprint,
+		p.PublicKey, p.ShortID, p.ALPN, p.AlterID,
+	})
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }

@@ -227,7 +227,7 @@ func newRoot(o *options, in io.Reader, out io.Writer) *cobra.Command {
 	}})
 	var file string
 	var stdin bool
-	importCmd := &cobra.Command{Use: "import", Short: "Import one Shadowsocks SIP002 link from private file or stdin", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+	importCmd := &cobra.Command{Use: "import", Short: "Import one ss, vless, vmess or trojan link from private file or stdin", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
 		if (file == "") == !stdin {
 			return domain.Fail(2, "Choose exactly one of --file or --stdin.", "Provide a private file path or pipe one share link into stdin.")
 		}

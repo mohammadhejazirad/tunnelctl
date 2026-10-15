@@ -7,8 +7,8 @@ work has independent safety gates.
 `cmd/tunnelctl` only connects process I/O to `internal/cli`. Cobra handlers parse
 arguments and render results. `internal/app` supplies reusable profile/session
 use cases. Domain models distinguish private Profile credentials from public
-redacted profiles and Session state. `internal/importer` normalizes untrusted
-SIP002 links. `internal/store` owns private files, atomic replacement and locks.
+redacted profiles and Session state. `internal/importer` normalizes untrusted SS,
+VLESS, VMess and Trojan share links. `internal/store` owns private files, atomic replacement and locks.
 `internal/session` owns session orchestration and deadlines. `internal/core`
 defines the backend/process contracts; `internal/core/singbox` renders, checks,
 starts, verifies readiness and stops the pinned executable. Linux identity,
@@ -51,7 +51,7 @@ conflict and is never converted into permission to signal a stored PID.
 
 Ordinary filesystem atomicity and flock are assumed on a local Linux filesystem.
 Network filesystems and filesystems lacking Unix modes are unsupported. Storage
-schema 3 has backup-preserving schema-1/2 migrations; unknown newer schemas fail
+schema 4 has backup-preserving schema-1/2/3 migrations; unknown newer schemas fail
 without overwriting content. Subscription source/profile updates use one file,
 strict bounded parsing, per-source locks and revision CAS. See subscriptions.md.
 Preferences and user metadata use this same snapshot/lock. Multifield TUI drafts
